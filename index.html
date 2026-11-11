@@ -19,7 +19,7 @@
   <canvas id="game" width="960" height="440"></canvas>
   <div id="hud"><span id="score">🛹 0 m &nbsp; 🪙 0</span><span id="lives">❤️❤️❤️</span></div>
 </div>
-<p id="hint">⬅️ ➡️ moverte &nbsp;|&nbsp; ESPACIO saltar &nbsp;|&nbsp; cruza las plataformas móviles y esquiva los pinchos 🚨</p>
+<p id="hint">⬅️ ➡️ moverte &nbsp;|&nbsp; ESPACIO saltar &nbsp;|&nbsp; en el aire: ⬆️ kickflip (+25) ⬇️ voltereta 360 (+50) &nbsp;|&nbsp; 🚨 pinchos y bordillos</p>
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -66,7 +66,7 @@ function buildTerrain() {
       segments.push({ type: "ramp", x, w: dw, y1: topY, y2: lastY, dir: 1 });
       x += dw;
       lastY = 360;
-    } else {                              // llano con monedas (a veces con pinchos)
+    } else {                              // calle con monedas (a veces con pinchos)
       const fw = 260 + Math.random() * 340;
       segments.push({ type: "flat", x, w: fw, y: 360 });
       if (fw > 260 && Math.random() < 0.5) {
@@ -76,6 +76,11 @@ function buildTerrain() {
         }
       }
       x += fw;
+      if (Math.random() < 0.45) {          // bordillo: acera elevada (salta para subir)
+        const cw = 200 + Math.random() * 260;
+        segments.push({ type: "flat", x, w: cw, y: 335 });
+        x += cw;
+      }
     }
   }
   // llano final
@@ -117,7 +122,9 @@ function buildCoins() {
 }
 
 // ---------- Jugador ----------
-const P = { x: 200, y: 0, vx: 0, vy: 0, grounded: false, angle: 0, worldX: 0, lives: 3, coins: 0, dist: 0, dead: false, started: false, won: false, plat: null };
+const P = { x: 200, y: 0, vx: 0, vy: 0, grounded: false, angle: 0, worldX: 0, lives: 3, coins: 0, dist: 0, dead: false, started: false, won: false, plat: null, trick: null, trickT: 0 };
+let texts = [];   // textos flotantes ("+50 🤙" etc.)
+function popText(txt, wx, wy) { texts.push({ txt, x: wx, y: wy, life: 60 }); }
 let camX = 0;
 const GRAV = 0.55, MAXVX = 9, ACC = 0.35, FRICT = 0.94, JUMP = -12.5;
 
@@ -146,7 +153,12 @@ addEventListener("keydown", e => {
   keys[e.code] = true;
   if (e.code === "Space") {
     if (!P.started) { P.started = true; }
-    else if (P.grounded && !P.dead) { P.vy = JUMP; P.grounded = false; P.plat = null; }
+    else if (P.grounded && !P.dead) { P.vy = JUMP; P.grounded = false; P.plat = null; P.trick = null; P.trickT = 0; }
+  }
+  // trucos en el aire: ⬆️ kickflip, ⬇️ voltereta 360
+  if (!P.grounded && !P.dead && P.started && P.lives > 0 && !P.won && !P.trick) {
+    if (e.code === "ArrowUp")   { P.trick = "kickflip"; P.trickT = 0; popText("Kickflip!", P.worldX, P.y - 70); }
+    if (e.code === "ArrowDown") { P.trick = "spin";     P.trickT = 0; popText("¡Voltereta!", P.worldX, P.y - 70); }
   }
   if (e.code === "Enter" && (P.lives <= 0 || P.won)) reset();
 });
@@ -173,6 +185,7 @@ function update() {
     if (!keys["ArrowRight"] && !keys["ArrowLeft"]) P.vx *= FRICT;
     P.vx = Math.max(-6, Math.min(MAXVX, P.vx));
 
+    const prevX = P.worldX;
     P.worldX += P.vx;
     const gy = groundY(P.worldX);
     if (P.grounded) {
@@ -186,6 +199,8 @@ function update() {
       } else if (gy === null) {           // se acabó el suelo bajo los pies
         P.grounded = false;
         P.vy = P.vx * slopeAt(P.worldX - P.vx); // impulso de rampa
+      } else if (gy < P.y - 20) {        // bordillo alto: choca, hay que saltar
+        P.worldX = prevX; P.vx = 0;
       } else {
         P.vy = (gy - P.y);       // seguir la pendiente
         P.y = gy;
@@ -204,6 +219,18 @@ function update() {
         P.y = landed.y; P.vy = 0; P.grounded = true; P.plat = landed;
       } else if (gy2 !== null && P.y >= gy2 && P.vy >= 0) {
         P.y = gy2; P.vy = 0; P.grounded = true; P.plat = null;
+      }
+    }
+    // animar y puntuar trucos
+    if (P.trick) {
+      P.trickT += 0.12;
+      if (P.grounded && P.trickT >= 1) {   // aterrizaje limpio: puntos
+        const pts = P.trick === "kickflip" ? 25 : 50;
+        P.coins += pts;
+        popText("+" + pts + " 🤙", P.worldX, P.y - 80);
+        P.trick = null; P.trickT = 0;
+      } else if (P.grounded && P.trickT < 1) { // aterrizaje a medias: nada
+        P.trick = null; P.trickT = 0;
       }
     }
     // pinchos: solo pican si estás en el suelo
@@ -225,6 +252,11 @@ function update() {
   }
   // cámara sigue al jugador
   camX += ((P.worldX - P.x) - camX) * 0.12;
+  // textos flotantes
+  for (let i = texts.length - 1; i >= 0; i--) {
+    texts[i].y -= 0.8; texts[i].life--;
+    if (texts[i].life <= 0) texts.splice(i, 1);
+  }
   // ángulo de la tabla
   const target = P.grounded ? slopeAt(P.worldX) * 1.2 : P.vy * 0.02;
   P.angle += (target - P.angle) * 0.2;
@@ -237,25 +269,30 @@ function drawSky() {
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   // sol
   ctx.fillStyle = "#ffd94d"; ctx.beginPath(); ctx.arc(830, 70, 34, 0, 7); ctx.fill();
-  // colinas de fondo (parallax)
-  ctx.fillStyle = "#a8d5a2";
-  for (let i = -1; i < 8; i++) {
-    const hx = ((i * 300) - (camX * 0.25) % 300);
-    ctx.beginPath(); ctx.moveTo(hx, 440);
-    ctx.quadraticCurveTo(hx + 150, 250 - (i % 3) * 40, hx + 300, 440);
-    ctx.fill();
+  // skyline lejano (parallax)
+  ctx.fillStyle = "#8d99b3";
+  for (let i = -1; i < 9; i++) {
+    const bx = i * 170 - ((camX * 0.2) % 170);
+    const bh = 130 + ((i * 53 + 31) % 5) * 26;
+    ctx.fillRect(bx, 440 - bh, 120, bh);
+    if ((i * 7 + 2) % 3 === 0) ctx.fillRect(bx + 30, 440 - bh - 24, 40, 24); // azotea
   }
-  ctx.fillStyle = "#8cc178";
+  // skyline cercano con ventanas
   for (let i = -1; i < 8; i++) {
-    const hx = ((i * 420) - (camX * 0.45) % 420);
-    ctx.beginPath(); ctx.moveTo(hx, 440);
-    ctx.quadraticCurveTo(hx + 210, 320 - (i % 2) * 50, hx + 420, 440);
-    ctx.fill();
+    const bx = i * 250 - ((camX * 0.45) % 250);
+    const bh = 160 + ((i * 29 + 11) % 4) * 34;
+    ctx.fillStyle = "#5c6884"; ctx.fillRect(bx, 440 - bh, 190, bh);
+    ctx.fillStyle = "rgba(255,220,130,0.85)";
+    for (let wy = 0; wy < bh - 40; wy += 34) {
+      for (let wx = 0; wx < 5; wx++) {
+        if ((i * 13 + wy * 7 + wx * 3) % 4 !== 0) ctx.fillRect(bx + 14 + wx * 36, 452 - bh + wy, 16, 18);
+      }
+    }
   }
 }
 function drawTerrain() {
   const y0 = H + 200;
-  ctx.fillStyle = "#5b3a29"; // tierra
+  ctx.fillStyle = "#3c3c44"; // asfalto
   for (const s of segments) {
     const sx = s.x - camX;
     if (sx > W + 50 || sx + s.w < -50) continue;
@@ -272,11 +309,17 @@ function drawTerrain() {
     const sx = s.x - camX;
     if (sx > W + 50 || sx + s.w < -50) continue;
     if (s.type === "flat") {
-      ctx.fillStyle = "#9c9c9c"; ctx.fillRect(sx, s.y - 6, s.w, 10);
-      ctx.fillStyle = "#4caf50"; ctx.fillRect(sx, s.y - 10, s.w, 6);
+      ctx.fillStyle = "#8f8f96"; ctx.fillRect(sx, s.y - 6, s.w, 10);
+      ctx.fillStyle = "#c9c9cf"; ctx.fillRect(sx, s.y - 10, s.w, 4);
+      if (s.y < 358) { // cara del bordillo
+        ctx.fillStyle = "#d8d8de"; ctx.fillRect(sx, s.y - 6, 6, 366 - s.y);
+      }
     } else if (s.type === "ramp") {
-      ctx.strokeStyle = "#8a6d3b"; ctx.lineWidth = 10;
+      ctx.strokeStyle = "#7a7a84"; ctx.lineWidth = 10;
       ctx.beginPath(); ctx.moveTo(sx, s.y1 - 5); ctx.lineTo(sx + s.w, s.y2 - 5); ctx.stroke();
+      // grafiti sobre la rampa
+      ctx.strokeStyle = ["#ff5964", "#39c1b5", "#ffb400"][(s.x / 1000 | 0) % 3]; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(sx + 10, s.y1 - 1); ctx.lineTo(sx + s.w - 10, s.y2 - 1); ctx.stroke();
     }
   }
 }
@@ -298,6 +341,26 @@ function drawProps() {
     ctx.moveTo(sx, 360); ctx.lineTo(sx + sp.w / 2, 330); ctx.lineTo(sx + sp.w, 360);
     ctx.fill();
   }
+  // mobiliario urbano: farolas y papeleras sobre las aceras
+  for (const s of segments) {
+    if (s.type !== "flat") continue;
+    const sx = s.x - camX;
+    if (sx > W + 60 || sx + s.w < -60) continue;
+    for (let px = s.x + 60; px < s.x + s.w - 40; px += 260) {
+      const lx = px - camX;
+      // farola
+      ctx.strokeStyle = "#5a5a62"; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(lx, s.y - 8); ctx.lineTo(lx, s.y - 108); ctx.stroke();
+      ctx.fillStyle = "#ffe9a8";
+      ctx.beginPath(); ctx.arc(lx + 14, s.y - 104, 9, 0, 7); ctx.fill();
+      ctx.fillStyle = "#5a5a62"; ctx.fillRect(lx, s.y - 112, 16, 5);
+      // papelera
+      if ((px / 260 | 0) % 2 === 1) {
+        ctx.fillStyle = "#2f7d5c"; ctx.fillRect(lx + 60, s.y - 38, 22, 30);
+        ctx.fillStyle = "#256549"; ctx.fillRect(lx + 58, s.y - 42, 26, 6);
+      }
+    }
+  }
 }
 function drawCoins() {
   for (const c of coins) {
@@ -315,11 +378,16 @@ function drawSkater() {
   ctx.save();
   ctx.translate(sx, sy - 22);
   ctx.rotate(P.angle);
-  // tabla
+  if (P.trick === "spin") ctx.rotate(P.trickT * Math.PI * 2); // voltereta 360
+  // tabla (gira sola en el kickflip)
+  ctx.save();
+  ctx.translate(0, 21);
+  if (P.trick === "kickflip") ctx.rotate(P.trickT * Math.PI * 2);
   ctx.fillStyle = "#e8474b";
-  ctx.fillRect(-26, 18, 52, 7);
+  ctx.fillRect(-26, -3, 52, 7);
   ctx.fillStyle = "#333";
-  ctx.fillRect(-20, 25, 9, 6); ctx.fillRect(11, 25, 9, 6);
+  ctx.fillRect(-20, 4, 9, 6); ctx.fillRect(11, 4, 9, 6);
+  ctx.restore();
   // cuerpo
   ctx.strokeStyle = "#22313f"; ctx.lineWidth = 5; ctx.lineCap = "round";
   ctx.beginPath(); ctx.moveTo(0, 18); ctx.lineTo(0, -8); ctx.stroke();        // torso
@@ -333,6 +401,17 @@ function drawSkater() {
   ctx.fillStyle = "#22313f"; ctx.beginPath(); ctx.arc(0, -19, 8, Math.PI, 0); ctx.fill();
   ctx.restore();
 }
+function drawTexts() {
+  ctx.font = "bold 20px 'Courier New', monospace"; ctx.textAlign = "center";
+  for (const t of texts) {
+    const sx = t.x - camX;
+    ctx.fillStyle = "rgba(0,0,0," + Math.min(0.6, t.life / 60) + ")";
+    ctx.fillText(t.txt, sx + 1, t.y + 1);
+    ctx.fillStyle = "rgba(255,255,255," + Math.min(1, t.life / 30) + ")";
+    ctx.fillText(t.txt, sx, t.y);
+  }
+  ctx.textAlign = "left";
+}
 function drawOverlay(txt, sub) {
   ctx.fillStyle = "rgba(10,10,30,0.55)"; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = "#fff"; ctx.textAlign = "center";
@@ -343,7 +422,7 @@ function drawOverlay(txt, sub) {
   ctx.textAlign = "left";
 }
 function render() {
-  drawSky(); drawTerrain(); drawProps(); drawCoins(); drawSkater();
+  drawSky(); drawTerrain(); drawProps(); drawCoins(); drawSkater(); drawTexts();
   if (!P.started) drawOverlay("🛹 SKATE GAME", "Pulsa ESPACIO para empezar · ⬅️➡️ mover · ESPACIO saltar");
   if (P.lives <= 0) drawOverlay("¡GAME OVER!", "Enter para reiniciar · Monedas: " + P.coins + " · Distancia: " + P.dist + " m");
   if (P.won) drawOverlay("¡META! 🏁", "Completaste el camino · Enter para reiniciar");
