@@ -21,7 +21,8 @@
   .tbtn { width: 66px; height: 66px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); background: rgba(30,30,60,.55); color: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center; touch-action: none; flex-direction: column; }
   .tbtn small { font-size: 8px; font-weight: bold; }
   .tbtn:active { background: rgba(90,120,255,.75); }
-  #dpad { display: flex; gap: 14px; }
+  #dpad { display: flex; gap: 12px; }
+  #btnRide { width: 72px; height: 72px; font-size: 13px; background: rgba(46,160,67,.65) !important; }
   #acts { display: flex; gap: 12px; align-items: flex-end; }
   #acts .tbtn { width: 62px; height: 62px; font-size: 12px; }
   #btnJump { width: 78px !important; height: 78px !important; font-size: 15px !important; background: rgba(232,71,75,.6) !important; }
@@ -43,6 +44,7 @@
 <div id="touch">
   <div id="dpad">
     <button class="tbtn" data-k="left">◀</button>
+    <button class="tbtn" id="btnRide" data-k="up">JAZDA<small>⬆️</small></button>
     <button class="tbtn" data-k="right">▶</button>
   </div>
   <div id="acts">
@@ -315,11 +317,17 @@ for (const b of document.querySelectorAll(".tbtn")) {
     ev.preventDefault();
     if (k === "left") input.left = true;
     else if (k === "right") input.right = true;
+    else if (k === "up") input.up = true;
     else if (t === "jump") jump();
     else if (t === "kick") trick("kick");
     else if (t === "spin") trick("spin");
   };
-  const up = ev => { ev.preventDefault(); if (k === "left") input.left = false; if (k === "right") input.right = false; };
+  const up = ev => {
+    ev.preventDefault();
+    if (k === "left") input.left = false;
+    if (k === "right") input.right = false;
+    if (k === "up") input.up = false;
+  };
   b.addEventListener("pointerdown", down);
   b.addEventListener("pointerup", up);
   b.addEventListener("pointerleave", up);
