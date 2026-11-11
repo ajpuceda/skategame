@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="pl">
 <head>
@@ -37,7 +38,7 @@
   <p>Pomóż Oskarowi jeździć na deskorolce po mieście i skateparku.</p>
   <p>⬅️ ➡️ skręcanie · ⬆️ / W przyspieszanie · SPACJA skok<br/>w powietrzu: <b>E</b> kickflip, <b>Q</b> obrót 360</p>
   <p>🪙 zbieraj monety · uwaga na pojemniki, kamienie i ławki!<br/>Jeśli Oskar się zrani, wraca do domu... i wraca z ręką w gipsie 🤕</p>
-  <p style="font-size:19px;color:#ffd94d">Naciśnij SPACJĘ (lub SKOK), aby zacząć!</p>
+  <p style="font-size:19px;color:#ffd94d">Naciśnij SPACJĘ, SKOK lub dotknij ekranu, aby zacząć!</p>
 </div>
 <div id="touch">
   <div id="dpad">
@@ -326,6 +327,8 @@ for (const b of document.querySelectorAll(".tbtn")) {
   b.addEventListener("contextmenu", e => e.preventDefault());
 }
 document.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
+// start: dotknięcie ekranu startowego też uruchamia grę (ważne na telefonie)
+startEl.addEventListener("pointerdown", e => { e.preventDefault(); jump(); });
 
 // ---------- Uszkodzenia ----------
 function damage(msg) {
