@@ -12,6 +12,18 @@
   canvas { display: block; width: 100%; height: auto; background: #87ceeb; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
   #hud { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 2px #000; pointer-events: none; }
   #hint { margin-top: 10px; font-size: 14px; color: #aeb8d4; text-align: center; }
+  #touch { display: none; position: fixed; bottom: 12px; left: 0; right: 0; padding: 0 14px; justify-content: space-between; align-items: flex-end; z-index: 10; user-select: none; -webkit-user-select: none; }
+  @media (pointer: coarse) { #touch { display: flex; } #hint { display: none; } }
+  .tbtn {
+    width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5);
+    background: rgba(30,30,60,.55); color: #fff; font-size: 26px; display: flex;
+    align-items: center; justify-content: center; touch-action: none;
+  }
+  .tbtn:active { background: rgba(90,120,255,.75); }
+  .tbtn small { font-size: 9px; font-weight: bold; }
+  #dpad { display: flex; gap: 12px; }
+  #acts { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  #acts .tbtn { width: 58px; height: 58px; font-size: 13px; flex-direction: column; }
 </style>
 </head>
 <body>
@@ -20,6 +32,17 @@
   <div id="hud"><span id="score">🛹 0 m &nbsp; 🪙 0</span><span id="lives">❤️❤️❤️</span></div>
 </div>
 <p id="hint">⬅️ ➡️ moverte &nbsp;|&nbsp; ESPACIO saltar &nbsp;|&nbsp; en el aire: ⬆️ kickflip (+25) ⬇️ voltereta 360 (+50) &nbsp;|&nbsp; 🚨 pinchos y bordillos</p>
+<div id="touch">
+  <div id="dpad">
+    <button class="tbtn" data-k="ArrowLeft">◀</button>
+    <button class="tbtn" data-k="ArrowRight">▶</button>
+  </div>
+  <div id="acts">
+    <button class="tbtn" data-t="kickflip">Kickflip<small>⬆️</small></button>
+    <button class="tbtn" data-t="spin">Voltereta<small>⬇️</small></button>
+    <button class="tbtn" data-t="jump" style="width:72px;height:72px;font-size:16px;background:rgba(232,71,75,.6)">SALTAR<small>espacio</small></button>
+  </div>
+</div>
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -163,6 +186,25 @@ addEventListener("keydown", e => {
   if (e.code === "Enter" && (P.lives <= 0 || P.won)) reset();
 });
 addEventListener("keyup", e => keys[e.code] = false);
+
+// ---------- Controles táctiles (móvil) ----------
+for (const b of document.querySelectorAll(".tbtn")) {
+  const k = b.dataset.k, t = b.dataset.t;
+  const down = ev => {
+    ev.preventDefault();
+    if (k) keys[k] = true;
+    else if (t === "jump") dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }));
+    else if (t) dispatchEvent(new KeyboardEvent("keydown", { code: t === "kickflip" ? "ArrowUp" : "ArrowDown" }));
+  };
+  const up = ev => { ev.preventDefault(); if (k) keys[k] = false; };
+  b.addEventListener("pointerdown", down);
+  b.addEventListener("pointerup", up);
+  b.addEventListener("pointerleave", up);
+  b.addEventListener("pointercancel", up);
+  b.addEventListener("contextmenu", e => e.preventDefault());
+}
+// evitar scroll/zoom mientras se juega
+document.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
 
 function die() {
   if (P.dead) return;
