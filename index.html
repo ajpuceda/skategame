@@ -442,6 +442,11 @@ function drawSkater() {
   ctx.fillStyle = "#ffd7b3"; ctx.beginPath(); ctx.arc(0, -16, 8, 0, 7); ctx.fill();
   ctx.fillStyle = "#22313f"; ctx.beginPath(); ctx.arc(0, -19, 8, Math.PI, 0); ctx.fill();
   ctx.restore();
+  // nombre del protagonista
+  ctx.font = "bold 11px 'Courier New', monospace"; ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillText("Oscar", sx + 1, sy - 41);
+  ctx.fillStyle = "#fff"; ctx.fillText("Oscar", sx, sy - 42);
+  ctx.textAlign = "left";
 }
 function drawTexts() {
   ctx.font = "bold 20px 'Courier New', monospace"; ctx.textAlign = "center";
@@ -465,9 +470,9 @@ function drawOverlay(txt, sub) {
 }
 function render() {
   drawSky(); drawTerrain(); drawProps(); drawCoins(); drawSkater(); drawTexts();
-  if (!P.started) drawOverlay("🛹 SKATE GAME", "Pulsa ESPACIO para empezar · ⬅️➡️ mover · ESPACIO saltar");
-  if (P.lives <= 0) drawOverlay("¡GAME OVER!", "Enter para reiniciar · Monedas: " + P.coins + " · Distancia: " + P.dist + " m");
-  if (P.won) drawOverlay("¡META! 🏁", "Completaste el camino · Enter para reiniciar");
+  if (!P.started) drawOverlay("🛹 SKATE GAME", "Ayuda a OSCAR a llegar a la meta · ESPACIO para empezar · ⬅️➡️ mover · ESPACIO saltar");
+  if (P.lives <= 0) drawOverlay("¡GAME OVER, OSCAR!", "Enter para reiniciar · Monedas: " + P.coins + " · Distancia: " + P.dist + " m");
+  if (P.won) drawOverlay("¡META! 🏁 ¡ENHORABUENA, OSCAR!", "Completaste el camino · Enter para reiniciar");
   scoreEl.textContent = "🛹 " + P.dist + " m \u00A0 🪙 " + P.coins;
   livesEl.textContent = "❤️".repeat(Math.max(0, P.lives));
 }
