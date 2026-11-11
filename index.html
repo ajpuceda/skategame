@@ -48,6 +48,7 @@
     <button class="tbtn" data-k="right">▶</button>
   </div>
   <div id="acts">
+    <button class="tbtn" data-t="crouch">Kucnij</button>
     <button class="tbtn" data-t="kick">Kickflip</button>
     <button class="tbtn" data-t="spin">Obrót 360</button>
     <button class="tbtn" id="btnJump" data-t="jump">SKOK<small>spacja</small></button>
@@ -223,14 +224,66 @@ bench(-10, 5.4, 0); bench(14, -5.4, 0);
 
 // ---------- Dom Oskara ----------
 const HOME = { x: -40, z: 20 };
-(function house() {
-  box(4.5, 3, 4.5, M.house, HOME.x, 1.5, HOME.z);
+const houseMats = [
+  new THREE.MeshLambertMaterial({ color: 0xd9c4a3 }),
+  new THREE.MeshLambertMaterial({ color: 0xc7d6e0 }),
+  new THREE.MeshLambertMaterial({ color: 0xe3c9b0 }),
+  new THREE.MeshLambertMaterial({ color: 0xcfe3c8 }),
+  new THREE.MeshLambertMaterial({ color: 0xe6d3ee }),
+  new THREE.MeshLambertMaterial({ color: 0xf0d8b8 }),
+];
+function graffitiTexture(draw) {
+  const cv = document.createElement("canvas"); cv.width = 256; cv.height = 128;
+  const c = cv.getContext("2d"); draw(c);
+  const tex = new THREE.CanvasTexture(cv);
+  return new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+}
+function house(x, z, mi, ry) {
+  const g = new THREE.Group();
+  const bodyH = new THREE.Mesh(new THREE.BoxGeometry(4.5, 3, 4.5), houseMats[mi % houseMats.length]);
+  bodyH.position.y = 1.5; bodyH.castShadow = true; bodyH.receiveShadow = true; g.add(bodyH);
   const roof = new THREE.Mesh(new THREE.ConeGeometry(3.6, 2, 4), M.roof);
-  roof.position.set(HOME.x, 4, HOME.z); roof.rotation.y = Math.PI / 4;
-  roof.castShadow = true; scene.add(roof);
-  box(1, 1.8, 0.1, M.dark, HOME.x, 0.9, HOME.z + 2.3);
-  box(1.2, 1.2, 0.1, new THREE.MeshLambertMaterial({ color: 0x9fd8ff }), HOME.x + 1.4, 1.7, HOME.z + 2.28);
+  roof.position.y = 4; roof.rotation.y = Math.PI / 4; roof.castShadow = true; g.add(roof);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1, 1.8, 0.1), M.dark);
+  door.position.set(0, 0.9, 2.3); g.add(door);
+  const win = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 0.1), new THREE.MeshLambertMaterial({ color: 0x9fd8ff }));
+  win.position.set(1.4, 1.7, 2.28); g.add(win);
+  g.position.set(x, 0, z); if (ry) g.rotation.y = ry;
+  scene.add(g);
+  OBST.push({ x, z, r: 2.9, msg: "Oskar wjechał w dom! 🏠" });
+  return g;
+}
+(function oskarHouse() {
+  const h = house(HOME.x, HOME.z, 0);
+  // grafiti "OSKAR" na ścianie
+  const gO = graffitiTexture(c => {
+    c.font = "bold 60px Courier New"; c.textAlign = "center"; c.textBaseline = "middle";
+    c.lineWidth = 10; c.strokeStyle = "#111"; c.strokeText("OSKAR", 128, 64);
+    c.fillStyle = "#39c1b5"; c.fillText("OSKAR", 128, 64);
+    c.fillStyle = "#ff5964"; c.beginPath(); c.arc(40, 40, 8, 0, 7); c.arc(216, 92, 8, 0, 7); c.fill();
+  });
+  const pO = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), gO);
+  pO.position.set(HOME.x - 0.9, 1.6, HOME.z + 2.28); scene.add(pO);
+  // grafiti FRIDA (pies)
+  const gF = graffitiTexture(c => {
+    c.font = "bold 40px Courier New"; c.textAlign = "center"; c.textBaseline = "middle";
+    c.lineWidth = 8; c.strokeStyle = "#111"; c.strokeText("FRIDA", 128, 100);
+    c.fillStyle = "#ffb400"; c.fillText("FRIDA", 128, 100);
+    // prosty piesek
+    c.fillStyle = "#b59a83"; c.strokeStyle = "#111"; c.lineWidth = 5;
+    c.beginPath(); c.arc(128, 46, 24, 0, 7); c.stroke(); c.fill();          // głowa
+    c.beginPath(); c.ellipse(128, 78, 26, 14, 0, 0, 7); c.stroke(); c.fill(); // pysk
+    c.beginPath(); c.moveTo(106, 30); c.lineTo(98, 12); c.lineTo(118, 24); c.closePath(); c.fill(); // ucho
+    c.beginPath(); c.moveTo(150, 30); c.lineTo(158, 12); c.lineTo(138, 24); c.closePath(); c.fill();
+    c.fillStyle = "#111"; c.beginPath(); c.arc(119, 42, 3.5, 0, 7); c.arc(137, 42, 3.5, 0, 7); c.fill(); // oczy
+  });
+  const pF = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), gF);
+  pF.position.set(HOME.x + 1.2, 1.9, HOME.z + 2.28); scene.add(pF);
 })();
+// więcej domów w mieście
+house(-20, 14, 1); house(-5, 14, 2); house(10, 14, 3); house(25, 14, 4);
+house(40, 14, 5, 0.2); house(-42, -28, 2, Math.PI / 2); house(-42, -44, 5, Math.PI / 2);
+house(-14, 26, 3); house(2, 26, 1); house(-28, -16, 0, Math.PI / 2);
 
 // ---------- Monety ----------
 const coins = [];
@@ -248,7 +301,7 @@ const P = {
   x: HOME.x + 6, z: HOME.z + 6, y: 0, vy: 0,
   heading: -2.2, speed: 0, grounded: true,
   hp: 100, points: 0, coinsN: 0, gips: false, hurtCd: 0,
-  trick: null, trickT: 0, started: false,
+  trick: null, trickT: 0, started: false, crouch: false,
 };
 const skater = new THREE.Group();
 // deskorolka – skierowana DO PRZODU (jedziemy nią, widzimy ją z tyłu)
@@ -299,6 +352,33 @@ const cast = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.4, 0.14), M.white);
 cast.position.set(0.3, 0.92, 0); cast.visible = false; skater.add(cast);
 scene.add(skater);
 
+// ---------- FRIDA – pies Oskara (brak de Weimaru, jasny brąz) ----------
+const dog = new THREE.Group();
+const dmat = new THREE.MeshLambertMaterial({ color: 0xb59a83 }); // jasnobrązowa sierść
+const dbody = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.32, 0.85), dmat);
+dbody.position.y = 0.62; dbody.castShadow = true; dog.add(dbody);
+const dhead = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.3, 0.34), dmat);
+dhead.position.set(0, 0.82, 0.5); dhead.castShadow = true; dog.add(dhead);
+const dsnout = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.2), new THREE.MeshLambertMaterial({ color: 0x9a8271 }));
+dsnout.position.set(0, 0.76, 0.7); dog.add(dsnout);
+for (const ex of [-0.13, 0.13]) { // zwisające uszy
+  const ear = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.2, 0.12), dmat);
+  ear.position.set(ex, 0.95, 0.44); dog.add(ear);
+}
+const deyes = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), M.dark);
+deyes.position.set(-0.08, 0.88, 0.66); dog.add(deyes);
+const deyes2 = deyes.clone(); deyes2.position.x = 0.08; dog.add(deyes2);
+const dogLegs = [];
+for (const lx of [-0.13, 0.13]) for (const lz of [-0.3, 0.3]) {
+  const leg = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.5, 0.09), dmat);
+  leg.position.set(lx, 0.25, lz); leg.castShadow = true; dog.add(leg);
+  dogLegs.push(leg);
+}
+const dtail = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.4), dmat);
+dtail.position.set(0, 0.72, -0.55); dtail.rotation.x = 0.6; dog.add(dtail);
+dog.position.set(P.x - 2.5, 0, P.z);
+scene.add(dog);
+
 // ---------- Wejście: klawiatura + przyciski ekranowe ----------
 const input = { left: false, right: false, up: false, down: false };
 function jump() {
@@ -320,12 +400,14 @@ addEventListener("keydown", e => {
   if (e.code === "Space") jump();
   if (e.code === "KeyE") trick("kick");
   if (e.code === "KeyQ") trick("spin");
+  if (e.code === "KeyC") P.crouch = true;
 });
 addEventListener("keyup", e => {
   if (e.code === "ArrowLeft" || e.code === "KeyA") input.left = false;
   if (e.code === "ArrowRight" || e.code === "KeyD") input.right = false;
   if (e.code === "ArrowUp" || e.code === "KeyW") input.up = false;
   if (e.code === "ArrowDown" || e.code === "KeyS") input.down = false;
+  if (e.code === "KeyC") P.crouch = false;
 });
 for (const b of document.querySelectorAll(".tbtn")) {
   const k = b.dataset.k, t = b.dataset.t;
@@ -337,12 +419,14 @@ for (const b of document.querySelectorAll(".tbtn")) {
     else if (t === "jump") jump();
     else if (t === "kick") trick("kick");
     else if (t === "spin") trick("spin");
+    else if (t === "crouch") P.crouch = true;
   };
   const up = ev => {
     ev.preventDefault();
     if (k === "left") input.left = false;
     if (k === "right") input.right = false;
     if (k === "up") input.up = false;
+    if (t === "crouch") P.crouch = false;
   };
   b.addEventListener("pointerdown", down);
   b.addEventListener("pointerup", up);
@@ -463,6 +547,24 @@ function tick() {
   if (P.grounded && Math.abs(P.speed) > 1) skater.position.y += Math.abs(Math.sin(t * Math.abs(P.speed) * 0.7)) * 0.03;
   // obrót monet
   for (const c of coins) if (!c.taken) c.m.rotation.z = Date.now() / 400;
+
+  // kucanie – Oskar pochyla się na desce
+  const cs = P.crouch ? 0.7 : 1;
+  skater.scale.y += (cs - skater.scale.y) * 0.25;
+  // FRIDA goni Oskara (biegnie za nim)
+  const fx = P.x - Math.sin(P.heading) * 2.6;
+  const fz = P.z - Math.cos(P.heading) * 2.6;
+  dog.position.x += (fx - dog.position.x) * 0.09;
+  dog.position.z += (fz - dog.position.z) * 0.09;
+  dog.position.y = groundH(dog.position.x, dog.position.z);
+  dog.rotation.y = Math.atan2(fx - dog.position.x, fz - dog.position.z);
+  // machanie ogonem i nogi
+  dtail.rotation.x = 0.6 + Math.sin(Date.now() / 120) * 0.35;
+  const run = Math.hypot(fx - dog.position.x, fz - dog.position.z);
+  const lg = Date.now() / 90;
+  for (let li = 0; li < dogLegs.length; li++) {
+    dogLegs[li].rotation.x = Math.sin(lg + li * Math.PI / 2) * Math.min(0.7, run * 0.8);
+  }
 
   // kamera za Oskarem
   const cx = P.x - Math.sin(P.heading) * 7;
