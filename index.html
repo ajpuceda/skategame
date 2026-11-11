@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="es">
 <head>
@@ -18,7 +19,7 @@
   <canvas id="game" width="960" height="440"></canvas>
   <div id="hud"><span id="score">🛹 0 m &nbsp; 🪙 0</span><span id="lives">❤️❤️❤️</span></div>
 </div>
-<p id="hint">⬅️ ➡️ moverte &nbsp;|&nbsp; ESPACIO saltar &nbsp;|&nbsp; coge monedas, esquiva los huecos</p>
+<p id="hint">⬅️ ➡️ moverte &nbsp;|&nbsp; ESPACIO saltar &nbsp;|&nbsp; cruza las plataformas móviles y esquiva los pinchos 🚨</p>
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -29,16 +30,28 @@ const livesEl = document.getElementById("lives");
 // ---------- Terreno ----------
 // Cada segmento: flat (llano), ramp (rampa subida/bajada), gap (hueco)
 const segments = [];
+let platforms = [];   // plataformas móviles sobre huecos grandes
+let spikes = [];       // pinchos en el suelo
 function buildTerrain() {
   segments.length = 0;
+  platforms = [];
+  spikes = [];
   segments.push({ type: "flat", x: -400, w: 1400, y: 360 });
   let x = 1000;
   let lastY = 360;
   while (x < 40000) {
     const r = Math.random();
-    if (r < 0.30) {                       // hueco: hay que saltar
-      const gw = 90 + Math.random() * 90;
+    if (r < 0.22) {                       // hueco pequeño: salto directo (siempre superable)
+      const gw = 80 + Math.random() * 40;
       segments.push({ type: "gap", x, w: gw, y: null });
+      x += gw;
+    } else if (r < 0.34) {                // hueco grande con plataforma móvil en medio
+      const gw = 220 + Math.random() * 90;
+      segments.push({ type: "gap", x, w: gw, y: null });
+      platforms.push({
+        x: x + 40, minX: x + 20, maxX: x + gw - 150, w: 110, y: 330,
+        speed: 1 + Math.random() * 0.8, dir: 1
+      });
       x += gw;
     } else if (r < 0.62) {                // rampa sube + meseta + rampa baja
       const rise = 55 + Math.random() * 60;
@@ -53,9 +66,15 @@ function buildTerrain() {
       segments.push({ type: "ramp", x, w: dw, y1: topY, y2: lastY, dir: 1 });
       x += dw;
       lastY = 360;
-    } else {                              // llano con monedas
+    } else {                              // llano con monedas (a veces con pinchos)
       const fw = 260 + Math.random() * 340;
       segments.push({ type: "flat", x, w: fw, y: 360 });
+      if (fw > 260 && Math.random() < 0.5) {
+        const n = 1 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < n; i++) {
+          spikes.push({ x: x + 70 + Math.random() * (fw - 140), w: 26 });
+        }
+      }
       x += fw;
     }
   }
@@ -98,7 +117,7 @@ function buildCoins() {
 }
 
 // ---------- Jugador ----------
-const P = { x: 200, y: 0, vx: 0, vy: 0, grounded: false, angle: 0, worldX: 0, lives: 3, coins: 0, dist: 0, dead: false, started: false, won: false };
+const P = { x: 200, y: 0, vx: 0, vy: 0, grounded: false, angle: 0, worldX: 0, lives: 3, coins: 0, dist: 0, dead: false, started: false, won: false, plat: null };
 let camX = 0;
 const GRAV = 0.55, MAXVX = 9, ACC = 0.35, FRICT = 0.94, JUMP = -12.5;
 
@@ -108,14 +127,14 @@ function respawn() {
   for (const s of segments) {
     if (s.type === "flat" && s.x + s.w < P.worldX + 10) safe = Math.max(safe, s.x + s.w - 150);
   }
-  P.worldX = safe; P.x = 200; P.y = groundY(safe) - 40; P.vx = 2; P.vy = 0; P.dead = false;
+  P.worldX = safe; P.x = 200; P.y = groundY(safe) - 40; P.vx = 2; P.vy = 0; P.dead = false; P.plat = null;
   camX = P.worldX - 200;
 }
 
 function reset() {
   buildTerrain(); buildCoins();
   P.worldX = 0; P.x = 200; P.y = 320; P.vx = 0; P.vy = 0;
-  P.lives = 3; P.coins = 0; P.dist = 0; P.dead = false; P.started = false; P.won = false;
+  P.lives = 3; P.coins = 0; P.dist = 0; P.dead = false; P.started = false; P.won = false; P.plat = null;
   camX = 0;
 }
 reset();
@@ -127,15 +146,27 @@ addEventListener("keydown", e => {
   keys[e.code] = true;
   if (e.code === "Space") {
     if (!P.started) { P.started = true; }
-    else if (P.grounded && !P.dead) { P.vy = JUMP; P.grounded = false; }
+    else if (P.grounded && !P.dead) { P.vy = JUMP; P.grounded = false; P.plat = null; }
   }
   if (e.code === "Enter" && (P.lives <= 0 || P.won)) reset();
 });
 addEventListener("keyup", e => keys[e.code] = false);
 
+function die() {
+  if (P.dead) return;
+  P.dead = true; P.lives--;
+  if (P.lives > 0) setTimeout(respawn, 400); else setTimeout(reset, 1200);
+}
+
 // ---------- Físicas ----------
 function update() {
   if (!P.started || P.lives <= 0 || P.won) { camX += (P.worldX - P.x - camX) * 0.1; return; }
+  // mover plataformas móviles
+  for (const pl of platforms) {
+    pl.x += pl.speed * pl.dir;
+    if (pl.x > pl.maxX) pl.dir = -1;
+    if (pl.x < pl.minX) pl.dir = 1;
+  }
   if (!P.dead) {
     if (keys["ArrowRight"]) P.vx += ACC;
     if (keys["ArrowLeft"])  P.vx -= ACC;
@@ -145,28 +176,44 @@ function update() {
     P.worldX += P.vx;
     const gy = groundY(P.worldX);
     if (P.grounded) {
-      if (gy === null) {           // se acabó el suelo bajo los pies
+      if (P.plat) {                          // sobre plataforma móvil
+        if (P.worldX + 14 < P.plat.x || P.worldX - 14 > P.plat.x + P.plat.w) {
+          P.grounded = false; P.plat = null; P.vy = 0;   // se quedó sin plataforma
+        } else {
+          P.worldX += P.plat.speed * P.plat.dir;         // te lleva con ella
+          P.y = P.plat.y;
+        }
+      } else if (gy === null) {           // se acabó el suelo bajo los pies
         P.grounded = false;
         P.vy = P.vx * slopeAt(P.worldX - P.vx); // impulso de rampa
       } else {
-        const newY = gy;
-        P.vy = (newY - P.y);       // seguir la pendiente
-        P.y = newY;
+        P.vy = (gy - P.y);       // seguir la pendiente
+        P.y = gy;
       }
     }
     if (!P.grounded) {
       P.vy += GRAV;
       P.y += P.vy;
+      let landed = null;
+      for (const pl of platforms) {
+        if (P.worldX + 12 > pl.x && P.worldX - 12 < pl.x + pl.w &&
+            P.y >= pl.y - 4 && P.y <= pl.y + 16 && P.vy >= 0) { landed = pl; break; }
+      }
       const gy2 = groundY(P.worldX);
-      if (gy2 !== null && P.y >= gy2 && P.vy >= 0) {
-        P.y = gy2; P.vy = 0; P.grounded = true;
+      if (landed) {
+        P.y = landed.y; P.vy = 0; P.grounded = true; P.plat = landed;
+      } else if (gy2 !== null && P.y >= gy2 && P.vy >= 0) {
+        P.y = gy2; P.vy = 0; P.grounded = true; P.plat = null;
+      }
+    }
+    // pinchos: solo pican si estás en el suelo
+    if (P.grounded && !P.plat) {
+      for (const sp of spikes) {
+        if (P.worldX + 16 > sp.x && P.worldX - 16 < sp.x + sp.w) { die(); break; }
       }
     }
     // caer al vacío
-    if (P.y > H + 80) {
-      P.dead = true; P.lives--;
-      if (P.lives > 0) setTimeout(respawn, 400); else setTimeout(reset, 1200);
-    }
+    if (P.y > H + 80) die();
     // monedas
     for (const c of coins) {
       if (!c.taken && Math.abs(c.x - P.worldX) < 30 && Math.abs(c.y - (P.y - 25)) < 45) {
@@ -233,6 +280,25 @@ function drawTerrain() {
     }
   }
 }
+function drawProps() {
+  // plataformas móviles
+  for (const pl of platforms) {
+    const sx = pl.x - camX;
+    if (sx > W + 60 || sx + pl.w < -60) continue;
+    ctx.fillStyle = "#444"; ctx.fillRect(sx + 10, pl.y + 14, 8, 6); ctx.fillRect(sx + pl.w - 18, pl.y + 14, 8, 6);
+    ctx.fillStyle = "#8b5a2b"; ctx.fillRect(sx, pl.y, pl.w, 14);
+    ctx.fillStyle = "#d9a44a"; ctx.fillRect(sx, pl.y, pl.w, 5);
+  }
+  // pinchos
+  for (const sp of spikes) {
+    const sx = sp.x - camX;
+    if (sx > W + 40 || sx + sp.w < -40) continue;
+    ctx.fillStyle = "#c0392b";
+    ctx.beginPath();
+    ctx.moveTo(sx, 360); ctx.lineTo(sx + sp.w / 2, 330); ctx.lineTo(sx + sp.w, 360);
+    ctx.fill();
+  }
+}
 function drawCoins() {
   for (const c of coins) {
     if (c.taken) continue;
@@ -277,7 +343,7 @@ function drawOverlay(txt, sub) {
   ctx.textAlign = "left";
 }
 function render() {
-  drawSky(); drawTerrain(); drawCoins(); drawSkater();
+  drawSky(); drawTerrain(); drawProps(); drawCoins(); drawSkater();
   if (!P.started) drawOverlay("🛹 SKATE GAME", "Pulsa ESPACIO para empezar · ⬅️➡️ mover · ESPACIO saltar");
   if (P.lives <= 0) drawOverlay("¡GAME OVER!", "Enter para reiniciar · Monedas: " + P.coins + " · Distancia: " + P.dist + " m");
   if (P.won) drawOverlay("¡META! 🏁", "Completaste el camino · Enter para reiniciar");
