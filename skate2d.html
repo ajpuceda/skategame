@@ -1,0 +1,483 @@
+
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Skate Game</title>
+<style>
+  :root { font-family: "Courier New", monospace; }
+  html, body { margin: 0; padding: 0; background: #1a1a2e; color: #fff; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #wrap { position: relative; width: 100%; max-width: 960px; }
+  canvas { display: block; width: 100%; height: auto; background: #87ceeb; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+  #hud { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 2px #000; pointer-events: none; }
+  #hint { margin-top: 10px; font-size: 14px; color: #aeb8d4; text-align: center; }
+  #touch { display: none; position: fixed; bottom: 12px; left: 0; right: 0; padding: 0 14px; justify-content: space-between; align-items: flex-end; z-index: 10; user-select: none; -webkit-user-select: none; }
+  @media (pointer: coarse) { #touch { display: flex; } #hint { display: none; } }
+  .tbtn {
+    width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5);
+    background: rgba(30,30,60,.55); color: #fff; font-size: 26px; display: flex;
+    align-items: center; justify-content: center; touch-action: none;
+  }
+  .tbtn:active { background: rgba(90,120,255,.75); }
+  .tbtn small { font-size: 9px; font-weight: bold; }
+  #dpad { display: flex; gap: 12px; }
+  #acts { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  #acts .tbtn { width: 58px; height: 58px; font-size: 13px; flex-direction: column; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="960" height="440"></canvas>
+  <div id="hud"><span id="score">🛹 0 m &nbsp; 🪙 0</span><span id="lives">❤️❤️❤️</span></div>
+</div>
+<p id="hint">⬅️ ➡️ moverte &nbsp;|&nbsp; ESPACIO saltar &nbsp;|&nbsp; en el aire: ⬆️ kickflip (+25) ⬇️ voltereta 360 (+50) &nbsp;|&nbsp; 🚨 pinchos y bordillos</p>
+<div id="touch">
+  <div id="dpad">
+    <button class="tbtn" data-k="ArrowLeft">◀</button>
+    <button class="tbtn" data-k="ArrowRight">▶</button>
+  </div>
+  <div id="acts">
+    <button class="tbtn" data-t="kickflip">Kickflip<small>⬆️</small></button>
+    <button class="tbtn" data-t="spin">Voltereta<small>⬇️</small></button>
+    <button class="tbtn" data-t="jump" style="width:72px;height:72px;font-size:16px;background:rgba(232,71,75,.6)">SALTAR<small>espacio</small></button>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const W = canvas.width, H = canvas.height;
+const scoreEl = document.getElementById("score");
+const livesEl = document.getElementById("lives");
+
+// ---------- Terreno ----------
+// Cada segmento: flat (llano), ramp (rampa subida/bajada), gap (hueco)
+const segments = [];
+let platforms = [];   // plataformas móviles sobre huecos grandes
+let spikes = [];       // pinchos en el suelo
+function buildTerrain() {
+  segments.length = 0;
+  platforms = [];
+  spikes = [];
+  segments.push({ type: "flat", x: -400, w: 1400, y: 360 });
+  let x = 1000;
+  let lastY = 360;
+  while (x < 40000) {
+    const r = Math.random();
+    if (r < 0.22) {                       // hueco pequeño: salto directo (siempre superable)
+      const gw = 80 + Math.random() * 40;
+      segments.push({ type: "gap", x, w: gw, y: null });
+      x += gw;
+    } else if (r < 0.34) {                // hueco grande con plataforma móvil en medio
+      const gw = 220 + Math.random() * 90;
+      segments.push({ type: "gap", x, w: gw, y: null });
+      platforms.push({
+        x: x + 40, minX: x + 20, maxX: x + gw - 150, w: 110, y: 330,
+        speed: 1 + Math.random() * 0.8, dir: 1
+      });
+      x += gw;
+    } else if (r < 0.62) {                // rampa sube + meseta + rampa baja
+      const rise = 55 + Math.random() * 60;
+      const rw = 130 + Math.random() * 70;
+      segments.push({ type: "ramp", x, w: rw, y1: lastY, y2: lastY - rise, dir: -1 });
+      x += rw;
+      const pw = 220 + Math.random() * 260;
+      const topY = lastY - rise;
+      segments.push({ type: "flat", x, w: pw, y: topY });
+      x += pw;
+      const dw = rw * (0.7 + Math.random() * 0.4);
+      segments.push({ type: "ramp", x, w: dw, y1: topY, y2: lastY, dir: 1 });
+      x += dw;
+      lastY = 360;
+    } else {                              // calle con monedas (a veces con pinchos)
+      const fw = 260 + Math.random() * 340;
+      segments.push({ type: "flat", x, w: fw, y: 360 });
+      if (fw > 260 && Math.random() < 0.5) {
+        const n = 1 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < n; i++) {
+          spikes.push({ x: x + 70 + Math.random() * (fw - 140), w: 26 });
+        }
+      }
+      x += fw;
+      if (Math.random() < 0.45) {          // bordillo: acera elevada (salta para subir)
+        const cw = 200 + Math.random() * 260;
+        segments.push({ type: "flat", x, w: cw, y: 335 });
+        x += cw;
+      }
+    }
+  }
+  // llano final
+  segments.push({ type: "flat", x, w: 3000, y: 360 });
+}
+function segAt(x) {
+  for (let i = 0; i < segments.length; i++) {
+    const s = segments[i];
+    if (x >= s.x && x < s.x + s.w) return s;
+  }
+  return null;
+}
+function groundY(x) {
+  const s = segAt(x);
+  if (!s) return null;
+  if (s.type === "gap") return null;
+  if (s.type === "flat") return s.y;
+  const t = (x - s.x) / s.w;
+  return s.y1 + (s.y2 - s.y1) * t;
+}
+function slopeAt(x) {
+  const s = segAt(x);
+  if (!s || s.type !== "ramp") return 0;
+  return (s.y2 - s.y1) / s.w;
+}
+
+// ---------- Monedas ----------
+let coins = [];
+function buildCoins() {
+  coins = [];
+  for (let x = 600; x < 40000; x += 180 + Math.random() * 260) {
+    const gy = groundY(x);
+    if (gy === null) { // sobre huecos: en el aire, se pillan saltando
+      coins.push({ x: x + 30, y: 300, taken: false });
+    } else {
+      coins.push({ x, y: gy - 70 - Math.random() * 40, taken: false });
+    }
+  }
+}
+
+// ---------- Jugador ----------
+const P = { x: 200, y: 0, vx: 0, vy: 0, grounded: false, angle: 0, worldX: 0, lives: 3, coins: 0, dist: 0, dead: false, started: false, won: false, plat: null, trick: null, trickT: 0 };
+let texts = [];   // textos flotantes ("+50 🤙" etc.)
+function popText(txt, wx, wy) { texts.push({ txt, x: wx, y: wy, life: 60 }); }
+let camX = 0;
+const GRAV = 0.55, MAXVX = 9, ACC = 0.35, FRICT = 0.94, JUMP = -12.5;
+
+function respawn() {
+  // vuelve al último llano seguro por delante del último checkpoint
+  let safe = 0;
+  for (const s of segments) {
+    if (s.type === "flat" && s.x + s.w < P.worldX + 10) safe = Math.max(safe, s.x + s.w - 150);
+  }
+  P.worldX = safe; P.x = 200; P.y = groundY(safe) - 40; P.vx = 2; P.vy = 0; P.dead = false; P.plat = null;
+  camX = P.worldX - 200;
+}
+
+function reset() {
+  buildTerrain(); buildCoins();
+  P.worldX = 0; P.x = 200; P.y = 320; P.vx = 0; P.vy = 0;
+  P.lives = 3; P.coins = 0; P.dist = 0; P.dead = false; P.started = false; P.won = false; P.plat = null;
+  camX = 0;
+}
+reset();
+
+// ---------- Teclado ----------
+const keys = {};
+addEventListener("keydown", e => {
+  if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," ","Space"].includes(e.key) || e.code === "Space") e.preventDefault();
+  keys[e.code] = true;
+  if (e.code === "Space") {
+    if (!P.started) { P.started = true; }
+    else if (P.grounded && !P.dead) { P.vy = JUMP; P.grounded = false; P.plat = null; P.trick = null; P.trickT = 0; }
+  }
+  // trucos en el aire: ⬆️ kickflip, ⬇️ voltereta 360
+  if (!P.grounded && !P.dead && P.started && P.lives > 0 && !P.won && !P.trick) {
+    if (e.code === "ArrowUp")   { P.trick = "kickflip"; P.trickT = 0; popText("Kickflip!", P.worldX, P.y - 70); }
+    if (e.code === "ArrowDown") { P.trick = "spin";     P.trickT = 0; popText("¡Voltereta!", P.worldX, P.y - 70); }
+  }
+  if (e.code === "Enter" && (P.lives <= 0 || P.won)) reset();
+});
+addEventListener("keyup", e => keys[e.code] = false);
+
+// ---------- Controles táctiles (móvil) ----------
+for (const b of document.querySelectorAll(".tbtn")) {
+  const k = b.dataset.k, t = b.dataset.t;
+  const down = ev => {
+    ev.preventDefault();
+    if (k) keys[k] = true;
+    else if (t === "jump") dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }));
+    else if (t) dispatchEvent(new KeyboardEvent("keydown", { code: t === "kickflip" ? "ArrowUp" : "ArrowDown" }));
+  };
+  const up = ev => { ev.preventDefault(); if (k) keys[k] = false; };
+  b.addEventListener("pointerdown", down);
+  b.addEventListener("pointerup", up);
+  b.addEventListener("pointerleave", up);
+  b.addEventListener("pointercancel", up);
+  b.addEventListener("contextmenu", e => e.preventDefault());
+}
+// evitar scroll/zoom mientras se juega
+document.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
+
+function die() {
+  if (P.dead) return;
+  P.dead = true; P.lives--;
+  if (P.lives > 0) setTimeout(respawn, 400); else setTimeout(reset, 1200);
+}
+
+// ---------- Físicas ----------
+function update() {
+  if (!P.started || P.lives <= 0 || P.won) { camX += (P.worldX - P.x - camX) * 0.1; return; }
+  // mover plataformas móviles
+  for (const pl of platforms) {
+    pl.x += pl.speed * pl.dir;
+    if (pl.x > pl.maxX) pl.dir = -1;
+    if (pl.x < pl.minX) pl.dir = 1;
+  }
+  if (!P.dead) {
+    if (keys["ArrowRight"]) P.vx += ACC;
+    if (keys["ArrowLeft"])  P.vx -= ACC;
+    if (!keys["ArrowRight"] && !keys["ArrowLeft"]) P.vx *= FRICT;
+    P.vx = Math.max(-6, Math.min(MAXVX, P.vx));
+
+    const prevX = P.worldX;
+    P.worldX += P.vx;
+    const gy = groundY(P.worldX);
+    if (P.grounded) {
+      if (P.plat) {                          // sobre plataforma móvil
+        if (P.worldX + 14 < P.plat.x || P.worldX - 14 > P.plat.x + P.plat.w) {
+          P.grounded = false; P.plat = null; P.vy = 0;   // se quedó sin plataforma
+        } else {
+          P.worldX += P.plat.speed * P.plat.dir;         // te lleva con ella
+          P.y = P.plat.y;
+        }
+      } else if (gy === null) {           // se acabó el suelo bajo los pies
+        P.grounded = false;
+        P.vy = P.vx * slopeAt(P.worldX - P.vx); // impulso de rampa
+      } else if (gy < P.y - 20) {        // bordillo alto: choca, hay que saltar
+        P.worldX = prevX; P.vx = 0;
+      } else {
+        P.vy = (gy - P.y);       // seguir la pendiente
+        P.y = gy;
+      }
+    }
+    if (!P.grounded) {
+      P.vy += GRAV;
+      P.y += P.vy;
+      let landed = null;
+      for (const pl of platforms) {
+        if (P.worldX + 12 > pl.x && P.worldX - 12 < pl.x + pl.w &&
+            P.y >= pl.y - 4 && P.y <= pl.y + 16 && P.vy >= 0) { landed = pl; break; }
+      }
+      const gy2 = groundY(P.worldX);
+      if (landed) {
+        P.y = landed.y; P.vy = 0; P.grounded = true; P.plat = landed;
+      } else if (gy2 !== null && P.y >= gy2 && P.vy >= 0) {
+        P.y = gy2; P.vy = 0; P.grounded = true; P.plat = null;
+      }
+    }
+    // animar y puntuar trucos
+    if (P.trick) {
+      P.trickT += 0.12;
+      if (P.grounded && P.trickT >= 1) {   // aterrizaje limpio: puntos
+        const pts = P.trick === "kickflip" ? 25 : 50;
+        P.coins += pts;
+        popText("+" + pts + " 🤙", P.worldX, P.y - 80);
+        P.trick = null; P.trickT = 0;
+      } else if (P.grounded && P.trickT < 1) { // aterrizaje a medias: nada
+        P.trick = null; P.trickT = 0;
+      }
+    }
+    // pinchos: solo pican si estás en el suelo
+    if (P.grounded && !P.plat) {
+      for (const sp of spikes) {
+        if (P.worldX + 16 > sp.x && P.worldX - 16 < sp.x + sp.w) { die(); break; }
+      }
+    }
+    // caer al vacío
+    if (P.y > H + 80) die();
+    // monedas
+    for (const c of coins) {
+      if (!c.taken && Math.abs(c.x - P.worldX) < 30 && Math.abs(c.y - (P.y - 25)) < 45) {
+        c.taken = true; P.coins += 10;
+      }
+    }
+    P.dist = Math.max(P.dist, Math.floor(P.worldX / 10));
+    if (P.worldX > 39500) P.won = true;
+  }
+  // cámara sigue al jugador
+  camX += ((P.worldX - P.x) - camX) * 0.12;
+  // textos flotantes
+  for (let i = texts.length - 1; i >= 0; i--) {
+    texts[i].y -= 0.8; texts[i].life--;
+    if (texts[i].life <= 0) texts.splice(i, 1);
+  }
+  // ángulo de la tabla
+  const target = P.grounded ? slopeAt(P.worldX) * 1.2 : P.vy * 0.02;
+  P.angle += (target - P.angle) * 0.2;
+}
+
+// ---------- Dibujo ----------
+function drawSky() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#7ec8f7"); g.addColorStop(1, "#cfeffd");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // sol
+  ctx.fillStyle = "#ffd94d"; ctx.beginPath(); ctx.arc(830, 70, 34, 0, 7); ctx.fill();
+  // skyline lejano (parallax)
+  ctx.fillStyle = "#8d99b3";
+  for (let i = -1; i < 9; i++) {
+    const bx = i * 170 - ((camX * 0.2) % 170);
+    const bh = 130 + ((i * 53 + 31) % 5) * 26;
+    ctx.fillRect(bx, 440 - bh, 120, bh);
+    if ((i * 7 + 2) % 3 === 0) ctx.fillRect(bx + 30, 440 - bh - 24, 40, 24); // azotea
+  }
+  // skyline cercano con ventanas
+  for (let i = -1; i < 8; i++) {
+    const bx = i * 250 - ((camX * 0.45) % 250);
+    const bh = 160 + ((i * 29 + 11) % 4) * 34;
+    ctx.fillStyle = "#5c6884"; ctx.fillRect(bx, 440 - bh, 190, bh);
+    ctx.fillStyle = "rgba(255,220,130,0.85)";
+    for (let wy = 0; wy < bh - 40; wy += 34) {
+      for (let wx = 0; wx < 5; wx++) {
+        if ((i * 13 + wy * 7 + wx * 3) % 4 !== 0) ctx.fillRect(bx + 14 + wx * 36, 452 - bh + wy, 16, 18);
+      }
+    }
+  }
+}
+function drawTerrain() {
+  const y0 = H + 200;
+  ctx.fillStyle = "#3c3c44"; // asfalto
+  for (const s of segments) {
+    const sx = s.x - camX;
+    if (sx > W + 50 || sx + s.w < -50) continue;
+    if (s.type === "flat") {
+      ctx.fillRect(sx, s.y, s.w, y0 - s.y);
+    } else if (s.type === "ramp") {
+      ctx.beginPath();
+      ctx.moveTo(sx, y0); ctx.lineTo(sx, s.y1); ctx.lineTo(sx + s.w, s.y2); ctx.lineTo(sx + s.w, y0);
+      ctx.fill();
+    }
+  }
+  // superficie de piedra + hierba
+  for (const s of segments) {
+    const sx = s.x - camX;
+    if (sx > W + 50 || sx + s.w < -50) continue;
+    if (s.type === "flat") {
+      ctx.fillStyle = "#8f8f96"; ctx.fillRect(sx, s.y - 6, s.w, 10);
+      ctx.fillStyle = "#c9c9cf"; ctx.fillRect(sx, s.y - 10, s.w, 4);
+      if (s.y < 358) { // cara del bordillo
+        ctx.fillStyle = "#d8d8de"; ctx.fillRect(sx, s.y - 6, 6, 366 - s.y);
+      }
+    } else if (s.type === "ramp") {
+      ctx.strokeStyle = "#7a7a84"; ctx.lineWidth = 10;
+      ctx.beginPath(); ctx.moveTo(sx, s.y1 - 5); ctx.lineTo(sx + s.w, s.y2 - 5); ctx.stroke();
+      // grafiti sobre la rampa
+      ctx.strokeStyle = ["#ff5964", "#39c1b5", "#ffb400"][(s.x / 1000 | 0) % 3]; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(sx + 10, s.y1 - 1); ctx.lineTo(sx + s.w - 10, s.y2 - 1); ctx.stroke();
+    }
+  }
+}
+function drawProps() {
+  // plataformas móviles
+  for (const pl of platforms) {
+    const sx = pl.x - camX;
+    if (sx > W + 60 || sx + pl.w < -60) continue;
+    ctx.fillStyle = "#444"; ctx.fillRect(sx + 10, pl.y + 14, 8, 6); ctx.fillRect(sx + pl.w - 18, pl.y + 14, 8, 6);
+    ctx.fillStyle = "#8b5a2b"; ctx.fillRect(sx, pl.y, pl.w, 14);
+    ctx.fillStyle = "#d9a44a"; ctx.fillRect(sx, pl.y, pl.w, 5);
+  }
+  // pinchos
+  for (const sp of spikes) {
+    const sx = sp.x - camX;
+    if (sx > W + 40 || sx + sp.w < -40) continue;
+    ctx.fillStyle = "#c0392b";
+    ctx.beginPath();
+    ctx.moveTo(sx, 360); ctx.lineTo(sx + sp.w / 2, 330); ctx.lineTo(sx + sp.w, 360);
+    ctx.fill();
+  }
+  // mobiliario urbano: farolas y papeleras sobre las aceras
+  for (const s of segments) {
+    if (s.type !== "flat") continue;
+    const sx = s.x - camX;
+    if (sx > W + 60 || sx + s.w < -60) continue;
+    for (let px = s.x + 60; px < s.x + s.w - 40; px += 260) {
+      const lx = px - camX;
+      // farola
+      ctx.strokeStyle = "#5a5a62"; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(lx, s.y - 8); ctx.lineTo(lx, s.y - 108); ctx.stroke();
+      ctx.fillStyle = "#ffe9a8";
+      ctx.beginPath(); ctx.arc(lx + 14, s.y - 104, 9, 0, 7); ctx.fill();
+      ctx.fillStyle = "#5a5a62"; ctx.fillRect(lx, s.y - 112, 16, 5);
+      // papelera
+      if ((px / 260 | 0) % 2 === 1) {
+        ctx.fillStyle = "#2f7d5c"; ctx.fillRect(lx + 60, s.y - 38, 22, 30);
+        ctx.fillStyle = "#256549"; ctx.fillRect(lx + 58, s.y - 42, 26, 6);
+      }
+    }
+  }
+}
+function drawCoins() {
+  for (const c of coins) {
+    if (c.taken) continue;
+    const sx = c.x - camX;
+    if (sx < -30 || sx > W + 30) continue;
+    const t = Date.now() / 300;
+    const rw = 10 * Math.abs(Math.cos(t));
+    ctx.fillStyle = "#ffcc00"; ctx.strokeStyle = "#b8860b"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(sx, c.y, Math.max(2, rw), 10, 0, 0, 7); ctx.fill(); ctx.stroke();
+  }
+}
+function drawSkater() {
+  const sx = P.x, sy = P.y;
+  ctx.save();
+  ctx.translate(sx, sy - 22);
+  ctx.rotate(P.angle);
+  if (P.trick === "spin") ctx.rotate(P.trickT * Math.PI * 2); // voltereta 360
+  // tabla (gira sola en el kickflip)
+  ctx.save();
+  ctx.translate(0, 21);
+  if (P.trick === "kickflip") ctx.rotate(P.trickT * Math.PI * 2);
+  ctx.fillStyle = "#e8474b";
+  ctx.fillRect(-26, -3, 52, 7);
+  ctx.fillStyle = "#333";
+  ctx.fillRect(-20, 4, 9, 6); ctx.fillRect(11, 4, 9, 6);
+  ctx.restore();
+  // cuerpo
+  ctx.strokeStyle = "#22313f"; ctx.lineWidth = 5; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(0, 18); ctx.lineTo(0, -8); ctx.stroke();        // torso
+  ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(12, -18); ctx.stroke();     // brazo
+  ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(-10, -14); ctx.stroke();
+  // piernas
+  ctx.beginPath(); ctx.moveTo(0, 18); ctx.lineTo(-8, 28); ctx.lineTo(-6, 18); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, 18); ctx.lineTo(10, 28); ctx.lineTo(12, 18); ctx.stroke();
+  // cabeza
+  ctx.fillStyle = "#ffd7b3"; ctx.beginPath(); ctx.arc(0, -16, 8, 0, 7); ctx.fill();
+  ctx.fillStyle = "#22313f"; ctx.beginPath(); ctx.arc(0, -19, 8, Math.PI, 0); ctx.fill();
+  ctx.restore();
+  // nombre del protagonista
+  ctx.font = "bold 11px 'Courier New', monospace"; ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillText("Oscar", sx + 1, sy - 41);
+  ctx.fillStyle = "#fff"; ctx.fillText("Oscar", sx, sy - 42);
+  ctx.textAlign = "left";
+}
+function drawTexts() {
+  ctx.font = "bold 20px 'Courier New', monospace"; ctx.textAlign = "center";
+  for (const t of texts) {
+    const sx = t.x - camX;
+    ctx.fillStyle = "rgba(0,0,0," + Math.min(0.6, t.life / 60) + ")";
+    ctx.fillText(t.txt, sx + 1, t.y + 1);
+    ctx.fillStyle = "rgba(255,255,255," + Math.min(1, t.life / 30) + ")";
+    ctx.fillText(t.txt, sx, t.y);
+  }
+  ctx.textAlign = "left";
+}
+function drawOverlay(txt, sub) {
+  ctx.fillStyle = "rgba(10,10,30,0.55)"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#fff"; ctx.textAlign = "center";
+  ctx.font = "bold 44px 'Courier New', monospace";
+  ctx.fillText(txt, W / 2, H / 2 - 20);
+  ctx.font = "20px 'Courier New', monospace";
+  ctx.fillText(sub, W / 2, H / 2 + 25);
+  ctx.textAlign = "left";
+}
+function render() {
+  drawSky(); drawTerrain(); drawProps(); drawCoins(); drawSkater(); drawTexts();
+  if (!P.started) drawOverlay("🛹 SKATE GAME", "Ayuda a OSCAR a llegar a la meta · ESPACIO para empezar · ⬅️➡️ mover · ESPACIO saltar");
+  if (P.lives <= 0) drawOverlay("¡GAME OVER, OSCAR!", "Enter para reiniciar · Monedas: " + P.coins + " · Distancia: " + P.dist + " m");
+  if (P.won) drawOverlay("¡META! 🏁 ¡ENHORABUENA, OSCAR!", "Completaste el camino · Enter para reiniciar");
+  scoreEl.textContent = "🛹 " + P.dist + " m \u00A0 🪙 " + P.coins;
+  livesEl.textContent = "❤️".repeat(Math.max(0, P.lives));
+}
+function loop() { update(); render(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>

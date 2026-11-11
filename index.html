@@ -1,483 +1,452 @@
-
 <!doctype html>
-<html lang="es">
+<html lang="pl">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Skate Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Gra Skate Oskara 3D</title>
 <style>
   :root { font-family: "Courier New", monospace; }
-  html, body { margin: 0; padding: 0; background: #1a1a2e; color: #fff; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  #wrap { position: relative; width: 100%; max-width: 960px; }
-  canvas { display: block; width: 100%; height: auto; background: #87ceeb; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
-  #hud { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 2px #000; pointer-events: none; }
-  #hint { margin-top: 10px; font-size: 14px; color: #aeb8d4; text-align: center; }
-  #touch { display: none; position: fixed; bottom: 12px; left: 0; right: 0; padding: 0 14px; justify-content: space-between; align-items: flex-end; z-index: 10; user-select: none; -webkit-user-select: none; }
-  @media (pointer: coarse) { #touch { display: flex; } #hint { display: none; } }
-  .tbtn {
-    width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5);
-    background: rgba(30,30,60,.55); color: #fff; font-size: 26px; display: flex;
-    align-items: center; justify-content: center; touch-action: none;
-  }
+  html, body { margin: 0; padding: 0; background: #1a1a2e; color: #fff; height: 100%; overflow: hidden; }
+  #c3d { position: fixed; inset: 0; width: 100%; height: 100%; }
+  #hud { position: fixed; top: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; text-shadow: 1px 1px 2px #000; pointer-events: none; z-index: 10; }
+  #hpbar { width: 150px; height: 14px; border: 2px solid #fff; border-radius: 7px; background: rgba(0,0,0,.4); overflow: hidden; }
+  #hpfill { height: 100%; width: 100%; background: #46d160; transition: width .3s; }
+  #toast { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); background: rgba(10,10,30,.75); padding: 8px 18px; border-radius: 20px; font-weight: bold; font-size: 17px; opacity: 0; transition: opacity .4s; pointer-events: none; z-index: 12; text-align: center; max-width: 86%; }
+  #start { position: fixed; inset: 0; background: rgba(8,8,25,.72); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 20; padding: 20px; }
+  #start h1 { font-size: 34px; margin: 0 0 10px; }
+  #start p { font-size: 15px; color: #cfd6ee; margin: 4px 0; max-width: 520px; }
+  #touch { display: none; position: fixed; bottom: 14px; left: 0; right: 0; padding: 0 14px; justify-content: space-between; align-items: flex-end; z-index: 15; user-select: none; -webkit-user-select: none; }
+  @media (pointer: coarse) { #touch { display: flex; } }
+  .tbtn { width: 66px; height: 66px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); background: rgba(30,30,60,.55); color: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center; touch-action: none; flex-direction: column; }
+  .tbtn small { font-size: 8px; font-weight: bold; }
   .tbtn:active { background: rgba(90,120,255,.75); }
-  .tbtn small { font-size: 9px; font-weight: bold; }
-  #dpad { display: flex; gap: 12px; }
-  #acts { display: flex; flex-direction: column; gap: 10px; align-items: center; }
-  #acts .tbtn { width: 58px; height: 58px; font-size: 13px; flex-direction: column; }
+  #dpad { display: flex; gap: 14px; }
+  #acts { display: flex; gap: 12px; align-items: flex-end; }
+  #acts .tbtn { width: 62px; height: 62px; font-size: 12px; }
+  #btnJump { width: 78px !important; height: 78px !important; font-size: 15px !important; background: rgba(232,71,75,.6) !important; }
 </style>
 </head>
 <body>
-<div id="wrap">
-  <canvas id="game" width="960" height="440"></canvas>
-  <div id="hud"><span id="score">🛹 0 m &nbsp; 🪙 0</span><span id="lives">❤️❤️❤️</span></div>
+<div id="hud">
+  <div>ŻYCIE<div id="hpbar"><div id="hpfill"></div></div></div>
+  <div>🛹 <span id="pts">0</span> pkt &nbsp; 🪙 <span id="coins">0</span></div>
 </div>
-<p id="hint">⬅️ ➡️ moverte &nbsp;|&nbsp; ESPACIO saltar &nbsp;|&nbsp; en el aire: ⬆️ kickflip (+25) ⬇️ voltereta 360 (+50) &nbsp;|&nbsp; 🚨 pinchos y bordillos</p>
+<div id="toast"></div>
+<div id="start">
+  <h1>🛹 GRA SKATE OSKARA 3D</h1>
+  <p>Pomóż Oskarowi jeździć na deskorolce po mieście i skateparku.</p>
+  <p>⬅️ ➡️ skręcanie · ⬆️ / W przyspieszanie · SPACJA skok<br/>w powietrzu: <b>E</b> kickflip, <b>Q</b> obrót 360</p>
+  <p>🪙 zbieraj monety · uwaga na pojemniki, kamienie i ławki!<br/>Jeśli Oskar się zrani, wraca do domu... i wraca z ręką w gipsie 🤕</p>
+  <p style="font-size:19px;color:#ffd94d">Naciśnij SPACJĘ (lub SKOK), aby zacząć!</p>
+</div>
 <div id="touch">
   <div id="dpad">
-    <button class="tbtn" data-k="ArrowLeft">◀</button>
-    <button class="tbtn" data-k="ArrowRight">▶</button>
+    <button class="tbtn" data-k="left">◀</button>
+    <button class="tbtn" data-k="right">▶</button>
   </div>
   <div id="acts">
-    <button class="tbtn" data-t="kickflip">Kickflip<small>⬆️</small></button>
-    <button class="tbtn" data-t="spin">Voltereta<small>⬇️</small></button>
-    <button class="tbtn" data-t="jump" style="width:72px;height:72px;font-size:16px;background:rgba(232,71,75,.6)">SALTAR<small>espacio</small></button>
+    <button class="tbtn" data-t="kick">Kickflip</button>
+    <button class="tbtn" data-t="spin">Obrót 360</button>
+    <button class="tbtn" id="btnJump" data-t="jump">SKOK<small>spacja</small></button>
   </div>
 </div>
+<div id="c3d"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-const W = canvas.width, H = canvas.height;
-const scoreEl = document.getElementById("score");
-const livesEl = document.getElementById("lives");
-
-// ---------- Terreno ----------
-// Cada segmento: flat (llano), ramp (rampa subida/bajada), gap (hueco)
-const segments = [];
-let platforms = [];   // plataformas móviles sobre huecos grandes
-let spikes = [];       // pinchos en el suelo
-function buildTerrain() {
-  segments.length = 0;
-  platforms = [];
-  spikes = [];
-  segments.push({ type: "flat", x: -400, w: 1400, y: 360 });
-  let x = 1000;
-  let lastY = 360;
-  while (x < 40000) {
-    const r = Math.random();
-    if (r < 0.22) {                       // hueco pequeño: salto directo (siempre superable)
-      const gw = 80 + Math.random() * 40;
-      segments.push({ type: "gap", x, w: gw, y: null });
-      x += gw;
-    } else if (r < 0.34) {                // hueco grande con plataforma móvil en medio
-      const gw = 220 + Math.random() * 90;
-      segments.push({ type: "gap", x, w: gw, y: null });
-      platforms.push({
-        x: x + 40, minX: x + 20, maxX: x + gw - 150, w: 110, y: 330,
-        speed: 1 + Math.random() * 0.8, dir: 1
-      });
-      x += gw;
-    } else if (r < 0.62) {                // rampa sube + meseta + rampa baja
-      const rise = 55 + Math.random() * 60;
-      const rw = 130 + Math.random() * 70;
-      segments.push({ type: "ramp", x, w: rw, y1: lastY, y2: lastY - rise, dir: -1 });
-      x += rw;
-      const pw = 220 + Math.random() * 260;
-      const topY = lastY - rise;
-      segments.push({ type: "flat", x, w: pw, y: topY });
-      x += pw;
-      const dw = rw * (0.7 + Math.random() * 0.4);
-      segments.push({ type: "ramp", x, w: dw, y1: topY, y2: lastY, dir: 1 });
-      x += dw;
-      lastY = 360;
-    } else {                              // calle con monedas (a veces con pinchos)
-      const fw = 260 + Math.random() * 340;
-      segments.push({ type: "flat", x, w: fw, y: 360 });
-      if (fw > 260 && Math.random() < 0.5) {
-        const n = 1 + Math.floor(Math.random() * 3);
-        for (let i = 0; i < n; i++) {
-          spikes.push({ x: x + 70 + Math.random() * (fw - 140), w: 26 });
-        }
-      }
-      x += fw;
-      if (Math.random() < 0.45) {          // bordillo: acera elevada (salta para subir)
-        const cw = 200 + Math.random() * 260;
-        segments.push({ type: "flat", x, w: cw, y: 335 });
-        x += cw;
-      }
-    }
-  }
-  // llano final
-  segments.push({ type: "flat", x, w: 3000, y: 360 });
-}
-function segAt(x) {
-  for (let i = 0; i < segments.length; i++) {
-    const s = segments[i];
-    if (x >= s.x && x < s.x + s.w) return s;
-  }
-  return null;
-}
-function groundY(x) {
-  const s = segAt(x);
-  if (!s) return null;
-  if (s.type === "gap") return null;
-  if (s.type === "flat") return s.y;
-  const t = (x - s.x) / s.w;
-  return s.y1 + (s.y2 - s.y1) * t;
-}
-function slopeAt(x) {
-  const s = segAt(x);
-  if (!s || s.type !== "ramp") return 0;
-  return (s.y2 - s.y1) / s.w;
+if (typeof THREE === "undefined") {
+  document.getElementById("start").innerHTML = "<h1>Gra działa online</h1><p>Otwórz grę pod adresem:<br/><b>https://ajpuceda.github.io/skategame/</b></p>";
+  document.getElementById("touch").style.display = "none";
+} else (function () {
+"use strict";
+const cont = document.getElementById("c3d");
+const toastEl = document.getElementById("toast");
+const hpfill = document.getElementById("hpfill");
+const ptsEl = document.getElementById("pts");
+const coinsEl = document.getElementById("coins");
+const startEl = document.getElementById("start");
+let toastTimer = null;
+function toast(msg) {
+  toastEl.textContent = msg; toastEl.style.opacity = 1;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.style.opacity = 0, 2600);
 }
 
-// ---------- Monedas ----------
-let coins = [];
-function buildCoins() {
-  coins = [];
-  for (let x = 600; x < 40000; x += 180 + Math.random() * 260) {
-    const gy = groundY(x);
-    if (gy === null) { // sobre huecos: en el aire, se pillan saltando
-      coins.push({ x: x + 30, y: 300, taken: false });
-    } else {
-      coins.push({ x, y: gy - 70 - Math.random() * 40, taken: false });
-    }
-  }
-}
-
-// ---------- Jugador ----------
-const P = { x: 200, y: 0, vx: 0, vy: 0, grounded: false, angle: 0, worldX: 0, lives: 3, coins: 0, dist: 0, dead: false, started: false, won: false, plat: null, trick: null, trickT: 0 };
-let texts = [];   // textos flotantes ("+50 🤙" etc.)
-function popText(txt, wx, wy) { texts.push({ txt, x: wx, y: wy, life: 60 }); }
-let camX = 0;
-const GRAV = 0.55, MAXVX = 9, ACC = 0.35, FRICT = 0.94, JUMP = -12.5;
-
-function respawn() {
-  // vuelve al último llano seguro por delante del último checkpoint
-  let safe = 0;
-  for (const s of segments) {
-    if (s.type === "flat" && s.x + s.w < P.worldX + 10) safe = Math.max(safe, s.x + s.w - 150);
-  }
-  P.worldX = safe; P.x = 200; P.y = groundY(safe) - 40; P.vx = 2; P.vy = 0; P.dead = false; P.plat = null;
-  camX = P.worldX - 200;
-}
-
-function reset() {
-  buildTerrain(); buildCoins();
-  P.worldX = 0; P.x = 200; P.y = 320; P.vx = 0; P.vy = 0;
-  P.lives = 3; P.coins = 0; P.dist = 0; P.dead = false; P.started = false; P.won = false; P.plat = null;
-  camX = 0;
-}
-reset();
-
-// ---------- Teclado ----------
-const keys = {};
-addEventListener("keydown", e => {
-  if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," ","Space"].includes(e.key) || e.code === "Space") e.preventDefault();
-  keys[e.code] = true;
-  if (e.code === "Space") {
-    if (!P.started) { P.started = true; }
-    else if (P.grounded && !P.dead) { P.vy = JUMP; P.grounded = false; P.plat = null; P.trick = null; P.trickT = 0; }
-  }
-  // trucos en el aire: ⬆️ kickflip, ⬇️ voltereta 360
-  if (!P.grounded && !P.dead && P.started && P.lives > 0 && !P.won && !P.trick) {
-    if (e.code === "ArrowUp")   { P.trick = "kickflip"; P.trickT = 0; popText("Kickflip!", P.worldX, P.y - 70); }
-    if (e.code === "ArrowDown") { P.trick = "spin";     P.trickT = 0; popText("¡Voltereta!", P.worldX, P.y - 70); }
-  }
-  if (e.code === "Enter" && (P.lives <= 0 || P.won)) reset();
+// ---------- Scena ----------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 60, 160);
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 300);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+cont.appendChild(renderer.domElement);
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
 });
-addEventListener("keyup", e => keys[e.code] = false);
+scene.add(new THREE.HemisphereLight(0xbfd8ff, 0x5a7a4a, 0.9));
+const sun = new THREE.DirectionalLight(0xfff2cc, 1.1);
+sun.position.set(30, 50, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.left = -60; sun.shadow.camera.right = 60;
+sun.shadow.camera.top = 60; sun.shadow.camera.bottom = -60;
+scene.add(sun);
 
-// ---------- Controles táctiles (móvil) ----------
+const M = {
+  grass: new THREE.MeshLambertMaterial({ color: 0x69a35e }),
+  asphalt: new THREE.MeshLambertMaterial({ color: 0x3c3c44 }),
+  concrete: new THREE.MeshLambertMaterial({ color: 0x9a9aa2 }),
+  curb: new THREE.MeshLambertMaterial({ color: 0xc9c9cf }),
+  wood: new THREE.MeshLambertMaterial({ color: 0x8b5a2b }),
+  trash: new THREE.MeshLambertMaterial({ color: 0x2f7d5c }),
+  stone: new THREE.MeshLambertMaterial({ color: 0x8a8a8a }),
+  bench: new THREE.MeshLambertMaterial({ color: 0xb06f3a }),
+  gold: new THREE.MeshLambertMaterial({ color: 0xffcc00 }),
+  red: new THREE.MeshLambertMaterial({ color: 0xe8474b }),
+  white: new THREE.MeshLambertMaterial({ color: 0xf2f2f2 }),
+  dark: new THREE.MeshLambertMaterial({ color: 0x22313f }),
+  skin: new THREE.MeshLambertMaterial({ color: 0xffd7b3 }),
+  jeans: new THREE.MeshLambertMaterial({ color: 0x3b5998 }),
+  hoodie: new THREE.MeshLambertMaterial({ color: 0x39c1b5 }),
+  roof: new THREE.MeshLambertMaterial({ color: 0xa83232 }),
+  house: new THREE.MeshLambertMaterial({ color: 0xd9c4a3 }),
+};
+function box(w, h, d, mat, x, y, z, ry) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z); if (ry) m.rotation.y = ry;
+  m.castShadow = true; m.receiveShadow = true;
+  scene.add(m); return m;
+}
+function cyl(r, h, mat, x, y, z, seg) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg || 12), mat);
+  m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
+  scene.add(m); return m;
+}
+
+// ---------- Mapa: dwie ulice + skatepark ----------
+box(220, 0.2, 220, M.grass, 0, -0.1, 0);                      // ziemia
+// ulica główna (oś X) i ulica poprzeczna (oś Z)
+box(90, 0.22, 10, M.asphalt, 0, 0.0, 0);                      // ulica 1
+box(10, 0.22, 90, M.asphalt, -30, 0.0, -35);                  // ulica 2
+// chodniki z bordami (podniesione)
+const SIDEWALKS = [];
+function sidewalk(x, z, w, d) {
+  box(w, 0.34, d, M.curb, x, 0.0, z);
+  SIDEWALKS.push({ x: x - w / 2, z: z - d / 2, w, d, y: 0.17 });
+}
+sidewalk(0, 7.5, 90, 4); sidewalk(0, -7.5, 90, 4);            // wzdłuż ulicy 1
+sidewalk(-23.5, -35, 4, 70); sidewalk(-36.5, -35, 4, 70);     // wzdłuż ulicy 2
+
+// skatepark (betonowa płyta)
+const PARK = { x: 20, z: -25 };
+box(40, 0.24, 34, M.concrete, PARK.x, 0.0, PARK.z);
+// rampy i platformy (funkcja wysokości!)
+const RAMPS = [];   // {x,z,w,d,h,ax,down}  wysokość rośnie (lub maleje, gdy down) liniowo
+const PLATS = [];   // {x,z,w,d,y}
+function rampMesh(x, z, w, d, h, ax, down) {
+  RAMPS.push({ x, z, w, d, h, ax, down: !!down });
+  const len = Math.sqrt((ax === "x" ? w : d) ** 2 + h * h);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(ax === "x" ? len : w, 0.24, ax === "x" ? d : len), M.concrete);
+  m.position.set(x + w / 2, h / 2, z + d / 2);
+  if (ax === "x") m.rotation.z = (down ? -1 : 1) * Math.atan2(h, w);
+  else m.rotation.x = (down ? 1 : -1) * Math.atan2(h, d);
+  m.castShadow = true; m.receiveShadow = true;
+  scene.add(m);
+}
+function platMesh(x, z, w, d, y) {
+  box(w, y, d, M.concrete, x + w / 2, y / 2, z + d / 2);
+  PLATS.push({ x, z, w, d, y });
+}
+// funbox: podjazd + platforma + zjazd
+rampMesh(PARK.x - 16, PARK.z - 4, 6, 8, 1.2, "x");
+platMesh(PARK.x - 10, PARK.z - 4, 6, 8, 1.2);
+rampMesh(PARK.x - 4, PARK.z - 4, 6, 8, 1.2, "x", true);
+// quarterpipe przy ścianie parku
+rampMesh(PARK.x + 10, PARK.z - 12, 8, 10, 2.4, "x");
+platMesh(PARK.x + 18, PARK.z - 12, 4, 10, 2.4);
+// piramida: podjazd + szczyt + zjazd
+rampMesh(PARK.x - 8, PARK.z + 4, 5, 6, 1.5, "x");
+rampMesh(PARK.x + 3, PARK.z + 4, 5, 6, 1.5, "x", true);
+platMesh(PARK.x - 3, PARK.z + 4, 6, 6, 1.5);
+// rampa wzdłuż Z
+rampMesh(PARK.x - 2, PARK.z + 10, 6, 5, 1.0, "z");
+
+function groundH(x, z) {
+  let h = 0;
+  for (const s of SIDEWALKS) if (x >= s.x && x <= s.x + s.w && z >= s.z && z <= s.z + s.d) h = Math.max(h, s.y);
+  for (const p of PLATS) if (x >= p.x && x <= p.x + p.w && z >= p.z && z <= p.z + p.d) h = Math.max(h, p.y);
+  for (const r of RAMPS) if (x >= r.x && x <= r.x + r.w && z >= r.z && z <= r.z + r.d) {
+    const t = r.ax === "x" ? (x - r.x) / r.w : (z - r.z) / r.d;
+    h = Math.max(h, r.down ? r.h * (1 - t) : r.h * t);
+  }
+  return h;
+}
+
+// ---------- Przeszkody: pojemniki, kamienie, ławki ----------
+const OBST = [];
+function trash(x, z) {
+  cyl(0.45, 1.0, M.trash, x, 0.5, z);
+  cyl(0.48, 0.12, M.dark, x, 1.05, z);
+  OBST.push({ x, z, r: 0.55, msg: "Oskar wjechał w pojemnik na śmieci! 🗑️" });
+}
+function stone(x, z) {
+  const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.45, 0), M.stone);
+  s.position.set(x, 0.3, z); s.rotation.set(Math.random(), Math.random(), 0);
+  s.castShadow = true; scene.add(s);
+  OBST.push({ x, z, r: 0.55, msg: "Auć! Kamień! 🪨" });
+}
+function bench(x, z, ry) {
+  const g = new THREE.Group();
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.14, 0.6), M.bench);
+  seat.position.y = 0.55; seat.castShadow = true; g.add(seat);
+  for (const lx of [-0.8, 0.8]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.5), M.dark);
+    leg.position.set(lx, 0.27, 0); g.add(leg);
+  }
+  g.position.set(x, 0, z); g.rotation.y = ry || 0;
+  scene.add(g);
+  OBST.push({ x, z, r: 1.0, msg: "Oskar uderzył w ławkę! 🪑" });
+}
+// pojemniki wzdłuż chodników
+[[-35, 7], [-18, 7], [2, 7], [18, 7], [34, 7], [-35, -7], [-14, -7], [4, -7], [26, -7]].forEach(p => trash(p[0], p[1]));
+// kamienie na ulicy i w parku
+[[10, 1], [24, -2], [38, 2], [6, -3], [-30, -28], [-26, -42], [PARK.x - 14, PARK.z + 10], [PARK.x + 2, PARK.z + 12], [PARK.x - 6, PARK.z - 14], [PARK.x + 8, PARK.z + 2], [PARK.x - 20, PARK.z - 10]].forEach(p => stone(p[0], p[1]));
+// ławki
+bench(PARK.x - 12, PARK.z + 14, 0.3); bench(PARK.x + 4, PARK.z + 14, -0.2);
+bench(-10, 5.4, 0); bench(14, -5.4, 0);
+
+// ---------- Dom Oskara ----------
+const HOME = { x: -40, z: 20 };
+(function house() {
+  box(4.5, 3, 4.5, M.house, HOME.x, 1.5, HOME.z);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(3.6, 2, 4), M.roof);
+  roof.position.set(HOME.x, 4, HOME.z); roof.rotation.y = Math.PI / 4;
+  roof.castShadow = true; scene.add(roof);
+  box(1, 1.8, 0.1, M.dark, HOME.x, 0.9, HOME.z + 2.3);
+  box(1.2, 1.2, 0.1, new THREE.MeshLambertMaterial({ color: 0x9fd8ff }), HOME.x + 1.4, 1.7, HOME.z + 2.28);
+})();
+
+// ---------- Monety ----------
+const coins = [];
+for (let i = 0; i < 24; i++) {
+  const inPark = i % 3 === 0;
+  const c = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.08, 16), M.gold);
+  c.rotation.x = Math.PI / 2;
+  c.position.set(inPark ? PARK.x + (Math.random() - 0.5) * 34 : -38 + i * 3.3, 1.0, inPark ? PARK.z + (Math.random() - 0.5) * 26 : (i % 2 ? 3 : -3));
+  c.castShadow = true; scene.add(c);
+  coins.push({ m: c, taken: false });
+}
+
+// ---------- Oskar ----------
+const P = {
+  x: HOME.x + 6, z: HOME.z + 6, y: 0, vy: 0,
+  heading: -2.2, speed: 0, grounded: true,
+  hp: 100, points: 0, coinsN: 0, gips: false, hurtCd: 0,
+  trick: null, trickT: 0, started: false,
+};
+const skater = new THREE.Group();
+// deskorolka
+const board = new THREE.Group();
+const deck = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.08, 0.38), M.red);
+deck.castShadow = true; board.add(deck);
+for (const wx of [-0.4, 0.4]) for (const wz of [-0.14, 0.14]) {
+  const w = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.07, 10), M.dark);
+  w.rotation.z = Math.PI / 2; w.position.set(wx, -0.1, wz); board.add(w);
+}
+board.position.y = 0.13; skater.add(board);
+// nogi
+for (const lx of [-0.16, 0.16]) {
+  const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.5, 0.14), M.jeans);
+  leg.position.set(lx, 0.45, 0); leg.castShadow = true; skater.add(leg);
+}
+// korpus (bluza)
+const torso = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.55, 0.26), M.hoodie);
+torso.position.y = 0.95; torso.castShadow = true; skater.add(torso);
+// głowa + czapka
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 12), M.skin);
+head.position.y = 1.4; head.castShadow = true; skater.add(head);
+const cap = new THREE.Mesh(new THREE.SphereGeometry(0.21, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.red);
+cap.position.y = 1.42; skater.add(cap);
+// ręce
+const armL = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.5, 0.11), M.hoodie);
+armL.position.set(-0.3, 0.95, 0); armL.castShadow = true; skater.add(armL);
+const armR = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.5, 0.11), M.hoodie);
+armR.position.set(0.3, 0.95, 0); armR.castShadow = true; skater.add(armR);
+// gips (pojawia się po pierwszym powrocie do domu)
+const cast = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.4, 0.14), M.white);
+cast.position.set(0.3, 0.92, 0); cast.visible = false; skater.add(cast);
+scene.add(skater);
+
+// ---------- Wejście: klawiatura + przyciski ekranowe ----------
+const input = { left: false, right: false, up: false, down: false };
+function jump() {
+  if (!P.started) { P.started = true; startEl.style.display = "none"; toast("Powodzenia, Oskarze! 🛹"); return; }
+  if (P.grounded) { P.vy = 8.2; P.grounded = false; P.trick = null; P.trickT = 0; }
+}
+function trick(t) {
+  if (P.started && !P.grounded && !P.trick) {
+    P.trick = t; P.trickT = 0;
+    toast(t === "kick" ? "Kickflip! 🤙" : "Obrót 360! 🤙");
+  }
+}
+addEventListener("keydown", e => {
+  if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," "].includes(e.key) || e.code === "Space") e.preventDefault();
+  if (e.code === "ArrowLeft" || e.code === "KeyA") input.left = true;
+  if (e.code === "ArrowRight" || e.code === "KeyD") input.right = true;
+  if (e.code === "ArrowUp" || e.code === "KeyW") input.up = true;
+  if (e.code === "ArrowDown" || e.code === "KeyS") input.down = true;
+  if (e.code === "Space") jump();
+  if (e.code === "KeyE") trick("kick");
+  if (e.code === "KeyQ") trick("spin");
+});
+addEventListener("keyup", e => {
+  if (e.code === "ArrowLeft" || e.code === "KeyA") input.left = false;
+  if (e.code === "ArrowRight" || e.code === "KeyD") input.right = false;
+  if (e.code === "ArrowUp" || e.code === "KeyW") input.up = false;
+  if (e.code === "ArrowDown" || e.code === "KeyS") input.down = false;
+});
 for (const b of document.querySelectorAll(".tbtn")) {
   const k = b.dataset.k, t = b.dataset.t;
   const down = ev => {
     ev.preventDefault();
-    if (k) keys[k] = true;
-    else if (t === "jump") dispatchEvent(new KeyboardEvent("keydown", { code: "Space" }));
-    else if (t) dispatchEvent(new KeyboardEvent("keydown", { code: t === "kickflip" ? "ArrowUp" : "ArrowDown" }));
+    if (k === "left") input.left = true;
+    else if (k === "right") input.right = true;
+    else if (t === "jump") jump();
+    else if (t === "kick") trick("kick");
+    else if (t === "spin") trick("spin");
   };
-  const up = ev => { ev.preventDefault(); if (k) keys[k] = false; };
+  const up = ev => { ev.preventDefault(); if (k === "left") input.left = false; if (k === "right") input.right = false; };
   b.addEventListener("pointerdown", down);
   b.addEventListener("pointerup", up);
   b.addEventListener("pointerleave", up);
   b.addEventListener("pointercancel", up);
   b.addEventListener("contextmenu", e => e.preventDefault());
 }
-// evitar scroll/zoom mientras se juega
 document.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
 
-function die() {
-  if (P.dead) return;
-  P.dead = true; P.lives--;
-  if (P.lives > 0) setTimeout(respawn, 400); else setTimeout(reset, 1200);
+// ---------- Uszkodzenia ----------
+function damage(msg) {
+  if (P.hurtCd > 0) return;
+  P.hurtCd = 1.2;
+  P.hp -= 30;
+  toast(msg);
+  hpfill.style.width = Math.max(0, P.hp) + "%";
+  hpfill.style.background = P.hp > 60 ? "#46d160" : P.hp > 30 ? "#ffb400" : "#ff5964";
+  if (P.hp <= 0) goHome();
+}
+function goHome() {
+  toast("Oskar wraca do domu... i wraca z ręką w gipsie 🤕");
+  P.gips = true; cast.visible = true;
+  P.x = HOME.x + 3; P.z = HOME.z + 4; P.y = 0; P.vy = 0; P.speed = 0;
+  P.heading = -0.9; P.hp = 100; P.grounded = true; P.trick = null;
+  hpfill.style.width = "100%"; hpfill.style.background = "#46d160";
 }
 
-// ---------- Físicas ----------
-function update() {
-  if (!P.started || P.lives <= 0 || P.won) { camX += (P.worldX - P.x - camX) * 0.1; return; }
-  // mover plataformas móviles
-  for (const pl of platforms) {
-    pl.x += pl.speed * pl.dir;
-    if (pl.x > pl.maxX) pl.dir = -1;
-    if (pl.x < pl.minX) pl.dir = 1;
-  }
-  if (!P.dead) {
-    if (keys["ArrowRight"]) P.vx += ACC;
-    if (keys["ArrowLeft"])  P.vx -= ACC;
-    if (!keys["ArrowRight"] && !keys["ArrowLeft"]) P.vx *= FRICT;
-    P.vx = Math.max(-6, Math.min(MAXVX, P.vx));
+// ---------- Pętla gry ----------
+const clock = new THREE.Clock();
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = Math.min(0.05, clock.getDelta());
 
-    const prevX = P.worldX;
-    P.worldX += P.vx;
-    const gy = groundY(P.worldX);
+  if (P.started) {
+    // sterowanie
+    const turn = (input.left ? 1 : 0) - (input.right ? 1 : 0);
+    P.heading += turn * 2.4 * dt * (0.5 + Math.min(1, P.speed / 6));
+    if (input.up) P.speed += 12 * dt;
+    else if (input.down) P.speed -= 14 * dt;
+    else P.speed *= (1 - 0.5 * dt);
+    P.speed = Math.max(-4, Math.min(12, P.speed));
+    if (P.grounded && P.speed !== 0 && !input.up && !input.down && Math.abs(P.speed) < 0.3) P.speed = 0;
+
+    // ruch
+    const nx = P.x + Math.sin(P.heading) * P.speed * dt;
+    const nz = P.z + Math.cos(P.heading) * P.speed * dt;
+    const nh = groundH(nx, nz);
+    if (P.grounded && nh - P.y > 0.25) {          // wysoki bord: trzeba skoczyć
+      P.speed *= 0.4;
+    } else {
+      P.x = nx; P.z = nz;
+    }
+    // spadanie / lądowanie
     if (P.grounded) {
-      if (P.plat) {                          // sobre plataforma móvil
-        if (P.worldX + 14 < P.plat.x || P.worldX - 14 > P.plat.x + P.plat.w) {
-          P.grounded = false; P.plat = null; P.vy = 0;   // se quedó sin plataforma
-        } else {
-          P.worldX += P.plat.speed * P.plat.dir;         // te lleva con ella
-          P.y = P.plat.y;
+      const gh = groundH(P.x, P.z);
+      if (gh < P.y - 0.05) { P.grounded = false; P.vy = 0; }  // zjechał z krawędzi
+      else P.y = gh;
+    } else {
+      P.vy -= 20 * dt;
+      P.y += P.vy * dt;
+      const gh = groundH(P.x, P.z);
+      if (P.y <= gh && P.vy <= 0) {
+        if (P.vy < -13) damage("Twarde lądowanie! Oskar boli rękę 😖");
+        P.y = gh; P.vy = 0; P.grounded = true;
+        if (P.trick && P.trickT >= 1) {          // czysty trick = punkty
+          const pts = P.trick === "kick" ? 25 : 50;
+          P.points += pts;
+          toast("Czysty trick! +" + pts + " pkt 🤙");
         }
-      } else if (gy === null) {           // se acabó el suelo bajo los pies
-        P.grounded = false;
-        P.vy = P.vx * slopeAt(P.worldX - P.vx); // impulso de rampa
-      } else if (gy < P.y - 20) {        // bordillo alto: choca, hay que saltar
-        P.worldX = prevX; P.vx = 0;
-      } else {
-        P.vy = (gy - P.y);       // seguir la pendiente
-        P.y = gy;
-      }
-    }
-    if (!P.grounded) {
-      P.vy += GRAV;
-      P.y += P.vy;
-      let landed = null;
-      for (const pl of platforms) {
-        if (P.worldX + 12 > pl.x && P.worldX - 12 < pl.x + pl.w &&
-            P.y >= pl.y - 4 && P.y <= pl.y + 16 && P.vy >= 0) { landed = pl; break; }
-      }
-      const gy2 = groundY(P.worldX);
-      if (landed) {
-        P.y = landed.y; P.vy = 0; P.grounded = true; P.plat = landed;
-      } else if (gy2 !== null && P.y >= gy2 && P.vy >= 0) {
-        P.y = gy2; P.vy = 0; P.grounded = true; P.plat = null;
-      }
-    }
-    // animar y puntuar trucos
-    if (P.trick) {
-      P.trickT += 0.12;
-      if (P.grounded && P.trickT >= 1) {   // aterrizaje limpio: puntos
-        const pts = P.trick === "kickflip" ? 25 : 50;
-        P.coins += pts;
-        popText("+" + pts + " 🤙", P.worldX, P.y - 80);
-        P.trick = null; P.trickT = 0;
-      } else if (P.grounded && P.trickT < 1) { // aterrizaje a medias: nada
         P.trick = null; P.trickT = 0;
       }
     }
-    // pinchos: solo pican si estás en el suelo
-    if (P.grounded && !P.plat) {
-      for (const sp of spikes) {
-        if (P.worldX + 16 > sp.x && P.worldX - 16 < sp.x + sp.w) { die(); break; }
-      }
-    }
-    // caer al vacío
-    if (P.y > H + 80) die();
-    // monedas
-    for (const c of coins) {
-      if (!c.taken && Math.abs(c.x - P.worldX) < 30 && Math.abs(c.y - (P.y - 25)) < 45) {
-        c.taken = true; P.coins += 10;
-      }
-    }
-    P.dist = Math.max(P.dist, Math.floor(P.worldX / 10));
-    if (P.worldX > 39500) P.won = true;
-  }
-  // cámara sigue al jugador
-  camX += ((P.worldX - P.x) - camX) * 0.12;
-  // textos flotantes
-  for (let i = texts.length - 1; i >= 0; i--) {
-    texts[i].y -= 0.8; texts[i].life--;
-    if (texts[i].life <= 0) texts.splice(i, 1);
-  }
-  // ángulo de la tabla
-  const target = P.grounded ? slopeAt(P.worldX) * 1.2 : P.vy * 0.02;
-  P.angle += (target - P.angle) * 0.2;
-}
+    // animacja tricka
+    if (P.trick) P.trickT += dt * 1.6;
 
-// ---------- Dibujo ----------
-function drawSky() {
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, "#7ec8f7"); g.addColorStop(1, "#cfeffd");
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  // sol
-  ctx.fillStyle = "#ffd94d"; ctx.beginPath(); ctx.arc(830, 70, 34, 0, 7); ctx.fill();
-  // skyline lejano (parallax)
-  ctx.fillStyle = "#8d99b3";
-  for (let i = -1; i < 9; i++) {
-    const bx = i * 170 - ((camX * 0.2) % 170);
-    const bh = 130 + ((i * 53 + 31) % 5) * 26;
-    ctx.fillRect(bx, 440 - bh, 120, bh);
-    if ((i * 7 + 2) % 3 === 0) ctx.fillRect(bx + 30, 440 - bh - 24, 40, 24); // azotea
-  }
-  // skyline cercano con ventanas
-  for (let i = -1; i < 8; i++) {
-    const bx = i * 250 - ((camX * 0.45) % 250);
-    const bh = 160 + ((i * 29 + 11) % 4) * 34;
-    ctx.fillStyle = "#5c6884"; ctx.fillRect(bx, 440 - bh, 190, bh);
-    ctx.fillStyle = "rgba(255,220,130,0.85)";
-    for (let wy = 0; wy < bh - 40; wy += 34) {
-      for (let wx = 0; wx < 5; wx++) {
-        if ((i * 13 + wy * 7 + wx * 3) % 4 !== 0) ctx.fillRect(bx + 14 + wx * 36, 452 - bh + wy, 16, 18);
+    // przeszkody
+    for (const o of OBST) {
+      const dx = P.x - o.x, dz = P.z - o.z;
+      const d = Math.hypot(dx, dz);
+      if (d < o.r + 0.4) {
+        if (Math.abs(P.speed) > 4.5) damage(o.msg);
+        const push = (o.r + 0.42 - d) / (d || 1);
+        P.x += dx * push; P.z += dz * push;
+        P.speed *= 0.3;
       }
     }
-  }
-}
-function drawTerrain() {
-  const y0 = H + 200;
-  ctx.fillStyle = "#3c3c44"; // asfalto
-  for (const s of segments) {
-    const sx = s.x - camX;
-    if (sx > W + 50 || sx + s.w < -50) continue;
-    if (s.type === "flat") {
-      ctx.fillRect(sx, s.y, s.w, y0 - s.y);
-    } else if (s.type === "ramp") {
-      ctx.beginPath();
-      ctx.moveTo(sx, y0); ctx.lineTo(sx, s.y1); ctx.lineTo(sx + s.w, s.y2); ctx.lineTo(sx + s.w, y0);
-      ctx.fill();
-    }
-  }
-  // superficie de piedra + hierba
-  for (const s of segments) {
-    const sx = s.x - camX;
-    if (sx > W + 50 || sx + s.w < -50) continue;
-    if (s.type === "flat") {
-      ctx.fillStyle = "#8f8f96"; ctx.fillRect(sx, s.y - 6, s.w, 10);
-      ctx.fillStyle = "#c9c9cf"; ctx.fillRect(sx, s.y - 10, s.w, 4);
-      if (s.y < 358) { // cara del bordillo
-        ctx.fillStyle = "#d8d8de"; ctx.fillRect(sx, s.y - 6, 6, 366 - s.y);
-      }
-    } else if (s.type === "ramp") {
-      ctx.strokeStyle = "#7a7a84"; ctx.lineWidth = 10;
-      ctx.beginPath(); ctx.moveTo(sx, s.y1 - 5); ctx.lineTo(sx + s.w, s.y2 - 5); ctx.stroke();
-      // grafiti sobre la rampa
-      ctx.strokeStyle = ["#ff5964", "#39c1b5", "#ffb400"][(s.x / 1000 | 0) % 3]; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.moveTo(sx + 10, s.y1 - 1); ctx.lineTo(sx + s.w - 10, s.y2 - 1); ctx.stroke();
-    }
-  }
-}
-function drawProps() {
-  // plataformas móviles
-  for (const pl of platforms) {
-    const sx = pl.x - camX;
-    if (sx > W + 60 || sx + pl.w < -60) continue;
-    ctx.fillStyle = "#444"; ctx.fillRect(sx + 10, pl.y + 14, 8, 6); ctx.fillRect(sx + pl.w - 18, pl.y + 14, 8, 6);
-    ctx.fillStyle = "#8b5a2b"; ctx.fillRect(sx, pl.y, pl.w, 14);
-    ctx.fillStyle = "#d9a44a"; ctx.fillRect(sx, pl.y, pl.w, 5);
-  }
-  // pinchos
-  for (const sp of spikes) {
-    const sx = sp.x - camX;
-    if (sx > W + 40 || sx + sp.w < -40) continue;
-    ctx.fillStyle = "#c0392b";
-    ctx.beginPath();
-    ctx.moveTo(sx, 360); ctx.lineTo(sx + sp.w / 2, 330); ctx.lineTo(sx + sp.w, 360);
-    ctx.fill();
-  }
-  // mobiliario urbano: farolas y papeleras sobre las aceras
-  for (const s of segments) {
-    if (s.type !== "flat") continue;
-    const sx = s.x - camX;
-    if (sx > W + 60 || sx + s.w < -60) continue;
-    for (let px = s.x + 60; px < s.x + s.w - 40; px += 260) {
-      const lx = px - camX;
-      // farola
-      ctx.strokeStyle = "#5a5a62"; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(lx, s.y - 8); ctx.lineTo(lx, s.y - 108); ctx.stroke();
-      ctx.fillStyle = "#ffe9a8";
-      ctx.beginPath(); ctx.arc(lx + 14, s.y - 104, 9, 0, 7); ctx.fill();
-      ctx.fillStyle = "#5a5a62"; ctx.fillRect(lx, s.y - 112, 16, 5);
-      // papelera
-      if ((px / 260 | 0) % 2 === 1) {
-        ctx.fillStyle = "#2f7d5c"; ctx.fillRect(lx + 60, s.y - 38, 22, 30);
-        ctx.fillStyle = "#256549"; ctx.fillRect(lx + 58, s.y - 42, 26, 6);
+    // monety
+    for (const c of coins) {
+      if (c.taken) continue;
+      if (Math.hypot(c.m.position.x - P.x, c.m.position.z - P.z) < 1.1 && Math.abs(c.m.position.y - (P.y + 0.8)) < 1.6) {
+        c.taken = true; c.m.visible = false;
+        P.coinsN += 10; P.points += 10;
       }
     }
+    if (P.hurtCd > 0) P.hurtCd -= dt;
+    if (P.hp < 100 && P.hurtCd <= 0) {           // powolna regeneracja
+      P.hp = Math.min(100, P.hp + 2 * dt);
+      hpfill.style.width = P.hp + "%";
+      if (P.hp > 30) hpfill.style.background = P.hp > 60 ? "#46d160" : "#ffb400";
+    }
+    ptsEl.textContent = P.points;
+    coinsEl.textContent = P.coinsN;
   }
+
+  // animacje Oskara
+  skater.position.set(P.x, P.y, P.z);
+  skater.rotation.y = P.heading;
+  if (P.trick === "kick") board.rotation.x = P.trickT * Math.PI * 2;
+  else board.rotation.x *= 0.8;
+  if (P.trick === "spin") skater.rotation.y = P.heading + P.trickT * Math.PI * 2;
+  // lekkie pochylenie na zakrętach
+  const lean = ((input.left ? 1 : 0) - (input.right ? 1 : 0)) * Math.min(0.3, Math.abs(P.speed) * 0.04);
+  skater.rotation.z = P.started ? lean : 0;
+  // kołysanie nóg podczas jazdy
+  const t = Date.now() / 150;
+  if (P.grounded && Math.abs(P.speed) > 1) skater.position.y += Math.abs(Math.sin(t * Math.abs(P.speed) * 0.7)) * 0.03;
+  // obrót monet
+  for (const c of coins) if (!c.taken) c.m.rotation.z = Date.now() / 400;
+
+  // kamera za Oskarem
+  const cx = P.x - Math.sin(P.heading) * 7;
+  const cz = P.z - Math.cos(P.heading) * 7;
+  camera.position.lerp(new THREE.Vector3(cx, P.y + 3.2, cz), 0.08);
+  camera.lookAt(P.x, P.y + 1.2, P.z);
+
+  renderer.render(scene, camera);
 }
-function drawCoins() {
-  for (const c of coins) {
-    if (c.taken) continue;
-    const sx = c.x - camX;
-    if (sx < -30 || sx > W + 30) continue;
-    const t = Date.now() / 300;
-    const rw = 10 * Math.abs(Math.cos(t));
-    ctx.fillStyle = "#ffcc00"; ctx.strokeStyle = "#b8860b"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.ellipse(sx, c.y, Math.max(2, rw), 10, 0, 0, 7); ctx.fill(); ctx.stroke();
-  }
-}
-function drawSkater() {
-  const sx = P.x, sy = P.y;
-  ctx.save();
-  ctx.translate(sx, sy - 22);
-  ctx.rotate(P.angle);
-  if (P.trick === "spin") ctx.rotate(P.trickT * Math.PI * 2); // voltereta 360
-  // tabla (gira sola en el kickflip)
-  ctx.save();
-  ctx.translate(0, 21);
-  if (P.trick === "kickflip") ctx.rotate(P.trickT * Math.PI * 2);
-  ctx.fillStyle = "#e8474b";
-  ctx.fillRect(-26, -3, 52, 7);
-  ctx.fillStyle = "#333";
-  ctx.fillRect(-20, 4, 9, 6); ctx.fillRect(11, 4, 9, 6);
-  ctx.restore();
-  // cuerpo
-  ctx.strokeStyle = "#22313f"; ctx.lineWidth = 5; ctx.lineCap = "round";
-  ctx.beginPath(); ctx.moveTo(0, 18); ctx.lineTo(0, -8); ctx.stroke();        // torso
-  ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(12, -18); ctx.stroke();     // brazo
-  ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(-10, -14); ctx.stroke();
-  // piernas
-  ctx.beginPath(); ctx.moveTo(0, 18); ctx.lineTo(-8, 28); ctx.lineTo(-6, 18); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, 18); ctx.lineTo(10, 28); ctx.lineTo(12, 18); ctx.stroke();
-  // cabeza
-  ctx.fillStyle = "#ffd7b3"; ctx.beginPath(); ctx.arc(0, -16, 8, 0, 7); ctx.fill();
-  ctx.fillStyle = "#22313f"; ctx.beginPath(); ctx.arc(0, -19, 8, Math.PI, 0); ctx.fill();
-  ctx.restore();
-  // nombre del protagonista
-  ctx.font = "bold 11px 'Courier New', monospace"; ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillText("Oscar", sx + 1, sy - 41);
-  ctx.fillStyle = "#fff"; ctx.fillText("Oscar", sx, sy - 42);
-  ctx.textAlign = "left";
-}
-function drawTexts() {
-  ctx.font = "bold 20px 'Courier New', monospace"; ctx.textAlign = "center";
-  for (const t of texts) {
-    const sx = t.x - camX;
-    ctx.fillStyle = "rgba(0,0,0," + Math.min(0.6, t.life / 60) + ")";
-    ctx.fillText(t.txt, sx + 1, t.y + 1);
-    ctx.fillStyle = "rgba(255,255,255," + Math.min(1, t.life / 30) + ")";
-    ctx.fillText(t.txt, sx, t.y);
-  }
-  ctx.textAlign = "left";
-}
-function drawOverlay(txt, sub) {
-  ctx.fillStyle = "rgba(10,10,30,0.55)"; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = "#fff"; ctx.textAlign = "center";
-  ctx.font = "bold 44px 'Courier New', monospace";
-  ctx.fillText(txt, W / 2, H / 2 - 20);
-  ctx.font = "20px 'Courier New', monospace";
-  ctx.fillText(sub, W / 2, H / 2 + 25);
-  ctx.textAlign = "left";
-}
-function render() {
-  drawSky(); drawTerrain(); drawProps(); drawCoins(); drawSkater(); drawTexts();
-  if (!P.started) drawOverlay("🛹 SKATE GAME", "Ayuda a OSCAR a llegar a la meta · ESPACIO para empezar · ⬅️➡️ mover · ESPACIO saltar");
-  if (P.lives <= 0) drawOverlay("¡GAME OVER, OSCAR!", "Enter para reiniciar · Monedas: " + P.coins + " · Distancia: " + P.dist + " m");
-  if (P.won) drawOverlay("¡META! 🏁 ¡ENHORABUENA, OSCAR!", "Completaste el camino · Enter para reiniciar");
-  scoreEl.textContent = "🛹 " + P.dist + " m \u00A0 🪙 " + P.coins;
-  livesEl.textContent = "❤️".repeat(Math.max(0, P.lives));
-}
-function loop() { update(); render(); requestAnimationFrame(loop); }
-loop();
+tick();
+})();
 </script>
 </body>
 </html>
