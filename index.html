@@ -135,21 +135,22 @@ function cyl(r, h, mat, x, y, z, seg) {
 
 // ---------- Mapa: dwie ulice + skatepark ----------
 box(220, 0.2, 220, M.grass, 0, -0.1, 0);                      // ziemia
-// ulica główna (oś X) i ulica poprzeczna (oś Z)
-box(90, 0.22, 10, M.asphalt, 0, 0.0, 0);                      // ulica 1
-box(10, 0.22, 90, M.asphalt, -30, 0.0, -35);                  // ulica 2
-// chodniki z bordami (podniesione)
+// ulica główna (oś X) i ulica poprzeczna (oś Z) – krzyżują się jak w prawdziwym mieście
+box(110, 0.22, 10, M.asphalt, -5, 0.0, 0);                     // ulica 1: x -60..50
+box(10, 0.22, 62, M.asphalt, -30, 0.0, -25);                   // ulica 2: z -56..6 (skrzyżowanie!)
+// chodniki z bordami (rozerwane na skrzyżowaniach jak w mieście)
 const SIDEWALKS = [];
 function sidewalk(x, z, w, d) {
   box(w, 0.34, d, M.curb, x, 0.0, z);
   SIDEWALKS.push({ x: x - w / 2, z: z - d / 2, w, d, y: 0.17 });
 }
-sidewalk(0, 7.5, 90, 4); sidewalk(0, -7.5, 90, 4);            // wzdłuż ulicy 1
-sidewalk(-23.5, -35, 4, 70); sidewalk(-36.5, -35, 4, 70);     // wzdłuż ulicy 2
+sidewalk(-47.5, 7.5, 25, 4); sidewalk(12.5, 7.5, 75, 4);       // północna strona ulicy 1
+sidewalk(-47.5, -7.5, 25, 4); sidewalk(12.5, -7.5, 75, 4);     // południowa strona ulicy 1
+sidewalk(-23.5, -28, 4, 46); sidewalk(-36.5, -28, 4, 46);      // wzdłuż ulicy 2 (z -51..-5)
 
-// skatepark (betonowa płyta)
-const PARK = { x: 20, z: -25 };
-box(40, 0.24, 34, M.concrete, PARK.x, 0.0, PARK.z);
+// skatepark – DUŻA płyta w zielonej strefie (południe-wschód)
+const PARK = { x: 25, z: -32 };
+box(56, 0.24, 44, M.concrete, PARK.x, 0.0, PARK.z);           // x -3..53, z -54..-10
 // rampy i platformy (funkcja wysokości!)
 const RAMPS = [];   // {x,z,w,d,h,ax,down}  wysokość rośnie (lub maleje, gdy down) liniowo
 const PLATS = [];   // {x,z,w,d,y}
@@ -167,19 +168,24 @@ function platMesh(x, z, w, d, y) {
   box(w, y, d, M.concrete, x + w / 2, y / 2, z + d / 2);
   PLATS.push({ x, z, w, d, y });
 }
-// funbox: podjazd + platforma + zjazd
-rampMesh(PARK.x - 16, PARK.z - 4, 6, 8, 1.2, "x");
-platMesh(PARK.x - 10, PARK.z - 4, 6, 8, 1.2);
-rampMesh(PARK.x - 4, PARK.z - 4, 6, 8, 1.2, "x", true);
-// quarterpipe przy ścianie parku
-rampMesh(PARK.x + 10, PARK.z - 12, 8, 10, 2.4, "x");
-platMesh(PARK.x + 18, PARK.z - 12, 4, 10, 2.4);
-// piramida: podjazd + szczyt + zjazd
-rampMesh(PARK.x - 8, PARK.z + 4, 5, 6, 1.5, "x");
-rampMesh(PARK.x + 3, PARK.z + 4, 5, 6, 1.5, "x", true);
-platMesh(PARK.x - 3, PARK.z + 4, 6, 6, 1.5);
-// rampa wzdłuż Z
-rampMesh(PARK.x - 2, PARK.z + 10, 6, 5, 1.0, "z");
+// FUNBOX na trasie (podjazd + platforma + zjazd), pas z -16..-8
+rampMesh(16, -16, 6, 8, 1.2, "x");
+platMesh(22, -16, 6, 8, 1.2);
+rampMesh(28, -16, 6, 8, 1.2, "x", true);
+// piramida (zachód parku)
+rampMesh(0, -24, 6, 8, 1.5, "x");
+platMesh(6, -24, 6, 8, 1.5);
+rampMesh(12, -24, 6, 8, 1.5, "x", true);
+// quarterpipe przy południowej krawędzi (wjazd od południa, platforma na górze)
+rampMesh(30, -46, 10, 6, 2.2, "z");
+platMesh(30, -40, 10, 4, 2.2);
+// mini quarter na zachodzie
+rampMesh(-1, -40, 8, 6, 1.8, "x");
+platMesh(7, -40, 5, 6, 1.8);
+// grzbiet na wschodzie (podjazd + platforma + zjazd)
+rampMesh(36, -34, 6, 6, 1.4, "x");
+platMesh(42, -34, 4, 6, 1.4);
+rampMesh(46, -34, 6, 6, 1.4, "x", true);
 
 function groundH(x, z) {
   let h = 0;
@@ -200,12 +206,32 @@ function trash(x, z) {
   OBST.push({ x, z, r: 0.55, msg: "Oskar wjechał w pojemnik na śmieci! 🗑️" });
 }
 function stone(x, z) {
-  const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.45, 0), M.stone);
-  s.position.set(x, 0.3, z); s.rotation.set(Math.random(), Math.random(), 0);
+  const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28, 0), M.stone);
+  s.position.set(x, 0.2, z); s.rotation.set(Math.random(), Math.random(), 0);
   s.castShadow = true; scene.add(s);
-  OBST.push({ x, z, r: 0.55, msg: "Auć! Kamień! 🪨" });
+  OBST.push({ x, z, r: 0.4, msg: "Auć! Kamień! 🪨" });
 }
-function bench(x, z, ry) {
+// człowiek siedzący na ławce
+function sitter(x, z, ry, y) {
+  const g = new THREE.Group();
+  const shirtM = new THREE.MeshLambertMaterial({ color: shirtsSitter() });
+  const pantsM = new THREE.MeshLambertMaterial({ color: 0x3b5998 });
+  const tor = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.24), shirtM);
+  tor.position.y = 0.85; g.add(tor);
+  const hd = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), M.skin);
+  hd.position.y = 1.28; g.add(hd);
+  for (const lx of [-0.13, 0.13]) {
+    const th = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.45), pantsM);
+    th.position.set(lx, 0.62, 0.16); g.add(th);
+    const sh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.5, 0.12), pantsM);
+    sh.position.set(lx, 0.28, 0.38); g.add(sh);
+  }
+  g.position.set(x, y === undefined ? 0.55 : y, z); g.rotation.y = ry;
+  scene.add(g);
+}
+const sitterShirts = [0xe07b39, 0x5b8dd6, 0xc15b8f, 0x6dbb7a, 0xb58ad6, 0xd6c15b];
+function shirtsSitter() { return sitterShirts[Math.floor(Math.random() * sitterShirts.length)]; }
+function bench(x, z, ry, sitters) {
   const g = new THREE.Group();
   const seat = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.14, 0.6), M.bench);
   seat.position.y = 0.55; seat.castShadow = true; g.add(seat);
@@ -213,17 +239,29 @@ function bench(x, z, ry) {
     const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.5), M.dark);
     leg.position.set(lx, 0.27, 0); g.add(leg);
   }
-  g.position.set(x, 0, z); g.rotation.y = ry || 0;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.4, 0.1), M.bench);
+  back.position.set(0, 0.8, -0.28); g.add(back);
+  g.position.set(x, 0.17, z); g.rotation.y = ry || 0;
   scene.add(g);
-  OBST.push({ x, z, r: 1.0, msg: "Oskar uderzył w ławkę! 🪑" });
+  OBST.push({ x, z, r: 1.1, msg: "Oskar uderzył w ławkę! 🪑" });
+  // ludzie siedzący (patrzą w stronę ulicy)
+  if (ry !== undefined && ry !== null) {
+    const c = Math.cos(ry), s = Math.sin(ry);
+    sitter(x + 0.5 * c, z - 0.5 * s, ry, 0.72);
+    if (Math.random() < 0.6) sitter(x - 0.5 * c, z + 0.5 * s, ry, 0.72);
+  }
 }
-// pojemniki wzdłuż chodników
-[[-35, 7], [-18, 7], [2, 7], [18, 7], [34, 7], [-35, -7], [-14, -7], [4, -7], [26, -7]].forEach(p => trash(p[0], p[1]));
-// kamienie w skateparku (uliczne trafią na boki trasy niżej)
-[[-30, -28], [-26, -42], [PARK.x - 14, PARK.z + 10], [PARK.x + 2, PARK.z + 12], [PARK.x - 6, PARK.z - 14], [PARK.x + 8, PARK.z + 2], [PARK.x - 20, PARK.z - 10]].forEach(p => stone(p[0], p[1]));
-// ławki
-bench(PARK.x - 12, PARK.z + 14, 0.3); bench(PARK.x + 4, PARK.z + 14, -0.2);
-bench(-10, 5.4, 0); bench(14, -5.4, 0);
+// pojemniki wzdłuż chodników (przy krawężniku zewnętrznym)
+[[-52, 8.4], [-38, 8.4], [-10, 8.4], [6, 8.4], [22, 8.4], [38, 8.4],
+ [-50, -8.4], [-38, -8.4], [-16, -8.4], [8, -8.4], [24, -8.4], [40, -8.4],
+ [-23.5, -46], [-36.5, -20]].forEach(p => trash(p[0], p[1]));
+// kamienie – małe i tylko kilka w skateparku
+[[4, -46], [14, -48], [24, -50], [48, -44]].forEach(p => stone(p[0], p[1]));
+// ławki – RÓWNOLEGLE do jezdni, z siedzącymi ludźmi
+bench(-40, 6.4, Math.PI); bench(-16, 6.4, Math.PI); bench(0, 6.4, Math.PI);
+bench(16, 6.4, Math.PI); bench(32, 6.4, Math.PI); bench(44, 6.4, Math.PI);
+bench(-44, -6.4, 0); bench(-12, -6.4, 0); bench(8, -6.4, 0); bench(24, -6.4, 0); bench(40, -6.4, 0);
+bench(-23.5, -40, Math.PI / 2); bench(-36.5, -44, -Math.PI / 2);
 
 // ---------- Dom Oskara ----------
 const HOME = { x: -40, z: 20 };
@@ -283,13 +321,6 @@ function house(x, z, mi, ry) {
   const pF = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.3), gF);
   pF.position.set(HOME.x - 2.3, 1.55, HOME.z); pF.rotation.y = -Math.PI / 2; scene.add(pF);
 })();
-// więcej domów w mieście – przy samej krawędzi drogi
-house(-20, 12, 1, Math.PI); house(-5, 12, 2, Math.PI); house(10, 12, 3, Math.PI);
-house(25, 12, 4, Math.PI); house(40, 12, 5, Math.PI);
-house(-32, -12, 2, 0); house(-18, -12, 5, 0); house(-3, -12, 3, 0); house(12, -12, 1, 0); house(27, -12, 4, 0);
-house(-42.5, -28, 0, Math.PI / 2); house(-42.5, -44, 3, Math.PI / 2);
-house(-18.5, -30, 2, -Math.PI / 2); house(-18.5, -48, 5, -Math.PI / 2);
-
 // grafiti z imionami na domach (od strony drogi)
 function graffitiName(text, color, x, y, z, ry) {
   const mat = graffitiTexture(c => {
@@ -301,14 +332,23 @@ function graffitiName(text, color, x, y, z, ry) {
   p.position.set(x, y, z); p.rotation.y = ry;
   scene.add(p);
 }
-graffitiName("ALEK", "#39c1b5", -18.5, 1.6, 9.68, Math.PI);
-graffitiName("OLIWIER", "#ff5964", -3.5, 1.6, 9.68, Math.PI);
-graffitiName("MONIKA", "#5b8dd6", 11.5, 1.6, 9.68, Math.PI);
-graffitiName("KUBA", "#ffb400", 26.5, 1.6, 9.68, Math.PI);
-graffitiName("ANTONIO", "#6dbb7a", 41.5, 1.6, 9.68, Math.PI);
-graffitiName("ULA", "#b58ad6", -33.5, 1.6, -9.68, 0);
-graffitiName("MARIA", "#e07b39", -19.5, 1.6, -9.68, 0);
-graffitiName("SOFIA", "#5bc9c4", -4.5, 1.6, -9.68, 0);
+// więcej domów – siatka miejska wzdłuż ULIC (frontem do jezdni)
+const NAMES = ["ALEK", "OLIWIER", "MONIKA", "KUBA", "ANTONIO", "ULA", "MARIA", "SOFIA"];
+const NAMECOLORS = ["#39c1b5", "#ff5964", "#ffb400", "#5b8dd6", "#6dbb7a", "#b58ad6", "#e07b39", "#5bc9c4"];
+[-45, -32, -19, -6, 7, 20, 33, 46].forEach((hx, i) => {
+  house(hx, 12, i + 1, Math.PI);   // północ ulicy głównej
+  graffitiName(NAMES[i % 8], NAMECOLORS[i % 8], hx + 1.5, 1.6, 9.69, Math.PI);
+});
+[-44, -20, -12].forEach((hx, i) => {
+  house(hx, -12, i + 2, 0);        // południe ulicy głównej
+  graffitiName(NAMES[(i + 4) % 8], NAMECOLORS[(i + 4) % 8], hx - 1.5, 1.6, -9.69, 0);
+});
+[-16, -28, -40, -52].forEach((hz, i) => {
+  house(-42.5, hz, i + 3, Math.PI / 2);   // zachód ulicy poprzecznej
+  graffitiName(NAMES[(i + 1) % 8], NAMECOLORS[(i + 1) % 8], -40.19, 1.6, hz - 1.4, Math.PI / 2);
+  house(-18.5, hz, i + 5, -Math.PI / 2);  // wschód ulicy poprzecznej
+  graffitiName(NAMES[(i + 5) % 8], NAMECOLORS[(i + 5) % 8], -20.81, 1.6, hz + 1.4, -Math.PI / 2);
+});
 
 // ---------- Słońce i białe chmury ----------
 const sunBall = new THREE.Mesh(new THREE.SphereGeometry(5, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffe977 }));
@@ -328,46 +368,55 @@ for (let i = 0; i < 10; i++) {
 // humorek (dymek) nad kupką
 const smokes = [];
 function puff(x, y, z) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), new THREE.MeshBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.45 }));
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), new THREE.MeshBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.35 }));
   m.position.set(x + (Math.random() - 0.5) * 0.2, y, z + (Math.random() - 0.5) * 0.2);
-  scene.add(m); smokes.push({ m, life: 2.5 });
+  scene.add(m); smokes.push({ m, life: 12 });
 }
 
-// ---------- Drzewa ----------
+// ---------- Duże drzewa ----------
 const TREES = [];
 function tree(x, z) {
-  cyl(0.18, 1.7, M.wood, x, 0.85, z, 8);
-  const top = new THREE.Mesh(new THREE.SphereGeometry(1.15, 12, 10), new THREE.MeshLambertMaterial({ color: 0x3f8f3f }));
-  top.position.set(x, 2.6, z); top.castShadow = true; scene.add(top);
+  cyl(0.28, 2.8, M.wood, x, 1.4, z, 8);
+  const top = new THREE.Mesh(new THREE.SphereGeometry(2.0, 14, 10), new THREE.MeshLambertMaterial({ color: 0x3f8f3f }));
+  top.position.set(x, 3.8, z); top.castShadow = true; scene.add(top);
   TREES.push({ x, z });
-  OBST.push({ x, z, r: 0.5, msg: "Oskar uderzył w drzewo! 🌳" });
+  OBST.push({ x, z, r: 0.6, msg: "Oskar uderzył w drzewo! 🌳" });
 }
-[[-38, 9.3], [-30, -9.3], [-22, 9.3], [-12, -9.3], [-2, 9.3], [8, -9.3], [18, 9.3], [28, -9.3], [38, 9.3],
- [-21.3, -31], [-21.3, -41], [-25.7, -33], [-25.7, -43], [14, 17], [30, 17]].forEach(p => tree(p[0], p[1]));
+[[-52, 9.3], [-44, 9.3], [-38, 9.3], [-26, 9.3], [-14, 9.3], [-2, 9.3], [10, 9.3], [26, 9.3], [38, 9.3],
+ [-56, -9.3], [-50, -9.3], [-8, -9.3], [2, -9.3], [14, -9.3], [30, -9.3], [46, -9.3],
+ [-21.3, -24], [-38.3, -30], [-21.3, -48], [-38.3, -48],
+ [-1, -22], [50, -24], [4, -52], [40, -52]].forEach(p => tree(p[0], p[1]));
 
-// ---------- Kredowe strzałki na drodze (trasa do skateparku) ----------
+// ---------- Kredowe strzałki -> <– proste, ze strzałką (trasa do skateparku) ----------
+const ROUTE = [
+  [-34, 15], [-33, 8], [-32, 2], [-24, 1], [-14, 1], [-4, 1], [6, 1], [12, -1],
+  [12, -6], [12, -12], [16, -12], [19, -12], [22, -12], [25, -12], [28, -12], [31, -12], [34, -12]
+];
 function chalk(x, z, ang) {
   const g = new THREE.Group();
   const m = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  for (const s of [-1, 1]) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.02, 1.25), m);
-    beam.position.set(0.5 * s, 0, 0.15);
-    beam.rotation.y = s * -0.55;
-    g.add(beam);
+  const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.02, 1.2), m);
+  g.add(shaft);
+  for (const s of [-1, 1]) {   // groty tworzą grot strzałki ->
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.02, 0.5), m);
+    head.position.set(0.2 * s, 0, 0.62);
+    head.rotation.y = s * 0.65;
+    g.add(head);
   }
-  g.position.set(x, 0.14, z); g.rotation.y = ang;
+  g.position.set(x, groundH(x, z) + 0.03, z); g.rotation.y = ang;
   scene.add(g);
 }
-chalk(-34, 15, Math.PI); chalk(-33.4, 8, Math.PI); chalk(-32.8, 2, Math.PI);
-[[-25, 1], [-17, 1], [-9, 1], [-1, 1], [7, 1], [15, 1]].forEach(p => chalk(p[0], p[1], Math.PI / 2));
-chalk(23, -3, Math.PI); chalk(23, -9, Math.PI); chalk(22, -15, Math.PI); chalk(21, -21, Math.PI);
+for (let seg = 0; seg < ROUTE.length - 1; seg++) {
+  const x1 = ROUTE[seg][0], z1 = ROUTE[seg][1];
+  const x2 = ROUTE[seg + 1][0], z2 = ROUTE[seg + 1][1];
+  const len = Math.hypot(x2 - x1, z2 - z1);
+  const ang = Math.atan2(x2 - x1, z2 - z1);
+  const n = Math.max(1, Math.floor(len / 5));
+  for (let k = 0; k < n; k++) chalk(x1 + (x2 - x1) * (k + 0.5) / n, z1 + (z2 - z1) * (k + 0.5) / n, ang);
+}
 
 // ---------- Monety DOKŁADNIE nad trasą (kredowe strzałki) ----------
 const coins = [];
-const ROUTE = [
-  [-34, 15], [-33.4, 8], [-32.8, 2], [-25, 1], [-17, 1], [-9, 1], [-1, 1], [7, 1], [15, 1],
-  [23, -3], [23, -9], [22, -15], [21, -21], [20, -25], [20, -30]
-];
 function addCoin(x, z) {
   const c = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.08, 16), M.gold);
   c.rotation.x = Math.PI / 2;
@@ -477,6 +526,7 @@ dtail.position.set(0, 0.72, -0.55); dtail.rotation.x = 0.6; dog.add(dtail);
 dog.position.set(P.x - 2.5, 0, P.z);
 scene.add(dog);
 const dogAI = { mode: "follow", timer: 14 + Math.random() * 10, tx: 0, tz: 0, eventT: 0, smokeT: 0.3 };
+const poops = [];
 
 // ---------- Ludzie i dzieci na deskorolkach ----------
 const npcs = [];
@@ -717,7 +767,7 @@ function tick() {
   if (dogAI.mode === "follow") {
     dogAI.timer -= dt;
     if (dogAI.timer <= 0 && P.started) {
-      if (Math.random() < 0.5) { dogAI.mode = "poop"; dogAI.eventT = 4.5; dogAI.smokeT = 0.3; toast("Frida robi kupkę... 💩"); }
+      if (Math.random() < 0.5) { dogAI.mode = "poop"; dogAI.eventT = 9; dogAI.smokeT = 0.3; toast("Frida robi kupkę... 💩"); }
       else if (TREES.length) {
         let best = TREES[0], bd = 1e9;
         for (const t of TREES) {
@@ -735,7 +785,7 @@ function tick() {
     dog.position.x += (dogAI.tx - dog.position.x) * 0.06;
     dog.position.z += (dogAI.tz - dog.position.z) * 0.06;
     dog.rotation.y = Math.atan2(dogAI.tx - dog.position.x, dogAI.tz - dog.position.z);
-    if (Math.hypot(dogAI.tx - dog.position.x, dogAI.tz - dog.position.z) < 0.5) { dogAI.mode = "pee"; dogAI.eventT = 2.6; }
+    if (Math.hypot(dogAI.tx - dog.position.x, dogAI.tz - dog.position.z) < 0.5) { dogAI.mode = "pee"; dogAI.eventT = 5.2; }
   } else if (dogAI.mode === "pee") {
     dogAI.eventT -= dt;
     if (dogAI.eventT <= 0) {
@@ -755,6 +805,7 @@ function tick() {
       kupka.scale.set(1, 0.6, 1);
       kupka.position.set(dog.position.x, groundH(dog.position.x, dog.position.z) + 0.05, dog.position.z);
       scene.add(kupka);
+      poops.push({ m: kupka, t: 45, sT: 0.5 });
       dogAI.mode = "follow"; dogAI.timer = 14 + Math.random() * 14;
     }
   }
@@ -805,10 +856,17 @@ function tick() {
   for (let i = smokes.length - 1; i >= 0; i--) {
     const s = smokes[i];
     s.life -= dt;
-    s.m.position.y += 0.35 * dt;
-    s.m.material.opacity = Math.max(0, s.life) * 0.2;
-    s.m.scale.setScalar(1 + (2.5 - Math.max(0, s.life)) * 0.3);
+    s.m.position.y += 0.25 * dt;
+    s.m.material.opacity = Math.min(0.35, Math.max(0, s.life) * 0.04);
+    s.m.scale.setScalar(1 + (12 - Math.max(0, s.life)) * 0.12);
     if (s.life <= 0) { scene.remove(s.m); smokes.splice(i, 1); }
+  }
+  // kupki Fridy długo „parują” na ziemi
+  for (let i = poops.length - 1; i >= 0; i--) {
+    const po = poops[i];
+    po.t -= dt; po.sT -= dt;
+    if (po.sT <= 0) { puff(po.m.position.x, po.m.position.y + 0.08, po.m.position.z); po.sT = 1.6; }
+    if (po.t <= 0) poops.splice(i, 1);
   }
 
   // kamera za Oskarem
