@@ -21,7 +21,8 @@
   .tbtn { width: 66px; height: 66px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); background: rgba(30,30,60,.55); color: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center; touch-action: none; flex-direction: column; }
   .tbtn small { font-size: 8px; font-weight: bold; }
   .tbtn:active { background: rgba(90,120,255,.75); }
-  #dpad { display: flex; gap: 12px; }
+  #dpad { display: flex; gap: 18px; align-items: flex-end; }
+  #turn { display: flex; gap: 10px; }
   #btnRide { width: 72px; height: 72px; font-size: 13px; background: rgba(46,160,67,.65) !important; }
   #acts { display: flex; gap: 12px; align-items: flex-end; }
   #acts .tbtn { width: 62px; height: 62px; font-size: 12px; }
@@ -43,9 +44,11 @@
 </div>
 <div id="touch">
   <div id="dpad">
-    <button class="tbtn" data-k="left">◀</button>
     <button class="tbtn" id="btnRide" data-k="up">JAZDA<small>⬆️</small></button>
-    <button class="tbtn" data-k="right">▶</button>
+    <div id="turn">
+      <button class="tbtn" data-k="left">◀</button>
+      <button class="tbtn" data-k="right">▶</button>
+    </div>
   </div>
   <div id="acts">
     <button class="tbtn" data-t="crouch">Kucnij</button>
@@ -262,8 +265,8 @@ function house(x, z, mi, ry) {
     c.fillStyle = "#39c1b5"; c.fillText("OSKAR", 128, 64);
     c.fillStyle = "#ff5964"; c.beginPath(); c.arc(40, 40, 8, 0, 7); c.arc(216, 92, 8, 0, 7); c.fill();
   });
-  const pO = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), gO);
-  pO.position.set(HOME.x - 0.9, 1.6, HOME.z + 2.28); scene.add(pO);
+  const pO = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.3), gO);
+  pO.position.set(HOME.x + 2.3, 1.55, HOME.z); pO.rotation.y = Math.PI / 2; scene.add(pO);
   // grafiti FRIDA (pies)
   const gF = graffitiTexture(c => {
     c.font = "bold 40px Courier New"; c.textAlign = "center"; c.textBaseline = "middle";
@@ -277,13 +280,42 @@ function house(x, z, mi, ry) {
     c.beginPath(); c.moveTo(150, 30); c.lineTo(158, 12); c.lineTo(138, 24); c.closePath(); c.fill();
     c.fillStyle = "#111"; c.beginPath(); c.arc(119, 42, 3.5, 0, 7); c.arc(137, 42, 3.5, 0, 7); c.fill(); // oczy
   });
-  const pF = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), gF);
-  pF.position.set(HOME.x + 1.2, 1.9, HOME.z + 2.28); scene.add(pF);
+  const pF = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.3), gF);
+  pF.position.set(HOME.x - 2.3, 1.55, HOME.z); pF.rotation.y = -Math.PI / 2; scene.add(pF);
 })();
 // więcej domów w mieście
 house(-20, 14, 1); house(-5, 14, 2); house(10, 14, 3); house(25, 14, 4);
 house(40, 14, 5, 0.2); house(-42, -28, 2, Math.PI / 2); house(-42, -44, 5, Math.PI / 2);
 house(-14, 26, 3); house(2, 26, 1); house(-28, -16, 0, Math.PI / 2);
+
+// ---------- Drzewa ----------
+const TREES = [];
+function tree(x, z) {
+  cyl(0.18, 1.7, M.wood, x, 0.85, z, 8);
+  const top = new THREE.Mesh(new THREE.SphereGeometry(1.15, 12, 10), new THREE.MeshLambertMaterial({ color: 0x3f8f3f }));
+  top.position.set(x, 2.6, z); top.castShadow = true; scene.add(top);
+  TREES.push({ x, z });
+  OBST.push({ x, z, r: 0.5, msg: "Oskar uderzył w drzewo! 🌳" });
+}
+[[-38, 9.3], [-30, -9.3], [-22, 9.3], [-12, -9.3], [-2, 9.3], [8, -9.3], [18, 9.3], [28, -9.3], [38, 9.3],
+ [-21.3, -31], [-21.3, -41], [-25.7, -33], [-25.7, -43], [14, 17], [30, 17]].forEach(p => tree(p[0], p[1]));
+
+// ---------- Kredowe strzałki na drodze (trasa do skateparku) ----------
+function chalk(x, z, ang) {
+  const g = new THREE.Group();
+  const m = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  for (const s of [-1, 1]) {
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.02, 1.25), m);
+    beam.position.set(0.5 * s, 0, 0.15);
+    beam.rotation.y = s * -0.55;
+    g.add(beam);
+  }
+  g.position.set(x, 0.14, z); g.rotation.y = ang;
+  scene.add(g);
+}
+chalk(-34, 15, Math.PI); chalk(-33.4, 8, Math.PI); chalk(-32.8, 2, Math.PI);
+[[-25, 1], [-17, 1], [-9, 1], [-1, 1], [7, 1], [15, 1]].forEach(p => chalk(p[0], p[1], Math.PI / 2));
+chalk(23, -3, Math.PI); chalk(23, -9, Math.PI); chalk(22, -15, Math.PI); chalk(21, -21, Math.PI);
 
 // ---------- Monety ----------
 const coins = [];
@@ -378,6 +410,68 @@ const dtail = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.4), dmat);
 dtail.position.set(0, 0.72, -0.55); dtail.rotation.x = 0.6; dog.add(dtail);
 dog.position.set(P.x - 2.5, 0, P.z);
 scene.add(dog);
+const dogAI = { mode: "follow", timer: 14 + Math.random() * 10, tx: 0, tz: 0, eventT: 0 };
+
+// ---------- Ludzie i dzieci na deskorolkach ----------
+const npcs = [];
+const shirts = [0xe07b39, 0x5b8dd6, 0xc15b8f, 0x6dbb7a, 0xb58ad6, 0xd6c15b, 0xd65b5b];
+const pantsC = [0x3b5998, 0x333344, 0x555];
+function npc(x, z, o) {
+  const g = new THREE.Group();
+  const shirtM = new THREE.MeshLambertMaterial({ color: shirts[Math.floor(Math.random() * shirts.length)] });
+  const pantsM = new THREE.MeshLambertMaterial({ color: pantsC[Math.floor(Math.random() * pantsC.length)] });
+  const legs = [];
+  for (const lx of [-0.13, 0.13]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.55, 0.13), pantsM);
+    leg.position.set(lx, 0.3, 0); leg.castShadow = true; g.add(leg); legs.push(leg);
+  }
+  const tor = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.24), shirtM);
+  tor.position.y = 0.82; tor.castShadow = true; g.add(tor);
+  const hd = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), M.skin);
+  hd.position.y = 1.25; g.add(hd);
+  if (o.board) {
+    const bd = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.9), new THREE.MeshLambertMaterial({ color: 0xe8474b }));
+    bd.position.y = 0.04; g.add(bd);
+  }
+  g.scale.setScalar(o.kid ? 0.6 : 0.85);
+  g.position.set(x, o.laneY, z);
+  scene.add(g);
+  npcs.push({ g, x, z, axis: o.axis, dir: Math.random() < 0.5 ? 1 : -1, speed: o.speed, min: o.min, max: o.max, phase: Math.random() * 10, legs, walk: !o.board });
+}
+// dorośli na chodnikach ulicy głównej
+[[-32, 7.5], [-20, -7.5], [-8, 7.5], [4, -7.5], [16, 7.5], [30, -7.5]].forEach((p, i) =>
+  npc(p[0], p[1], { axis: "x", speed: 0.9 + (i % 3) * 0.25, min: -40, max: 42, laneY: 0.17, kid: false, board: false }));
+// dorośli na ulicy poprzecznej
+npc(-23.5, -20, { axis: "z", speed: 1.1, min: -55, max: -8, laneY: 0.17, kid: false, board: false });
+npc(-36.5, -38, { axis: "z", speed: 0.9, min: -55, max: -8, laneY: 0.17, kid: false, board: false });
+// dzieciaki na deskorolkach – jeżdżą po ulicy
+[[2.2, -35, 32], [2.2, -30, 25], [-2.2, -28, 34], [-2.2, -33, 20], [2.2, -25, 40], [-2.2, -20, 30], [2.2, -12, 28], [-2.2, -15, 38]].forEach((p, i) =>
+  npc(p[1], p[0], { axis: "x", speed: 2.5 + (i % 4) * 0.6, min: p[1] - p[2] / 2, max: p[1] + p[2] / 2, laneY: 0.11, kid: true, board: true }));
+// dzieciaki idące
+npc(7.5, 9.5, { axis: "z", speed: 1.2, min: -6, max: 9, laneY: 0.17, kid: true, board: false });
+npc(-7.5, 9.5, { axis: "z", speed: 1.0, min: -6, max: 9, laneY: 0.17, kid: true, board: false });
+
+// ---------- Dźwięk: szum rolek ----------
+let AC = null, rollGain = null, rollFilter = null;
+function initAudio() {
+  if (AC) return;
+  try {
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    AC.resume();
+    const len = AC.sampleRate * 2;
+    const buf = AC.createBuffer(1, len, AC.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const src = AC.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    rollFilter = AC.createBiquadFilter();
+    rollFilter.type = "bandpass"; rollFilter.frequency.value = 300; rollFilter.Q.value = 1.2;
+    rollGain = AC.createGain(); rollGain.gain.value = 0;
+    src.connect(rollFilter); rollFilter.connect(rollGain); rollGain.connect(AC.destination);
+    src.start();
+  } catch (e) { AC = null; }
+}
+addEventListener("pointerdown", () => { initAudio(); if (AC) AC.resume(); });
 
 // ---------- Wejście: klawiatura + przyciski ekranowe ----------
 const input = { left: false, right: false, up: false, down: false };
@@ -465,7 +559,7 @@ function tick() {
   if (P.started) {
     // sterowanie
     const turn = (input.left ? 1 : 0) - (input.right ? 1 : 0);
-    P.heading += turn * 2.4 * dt * (0.5 + Math.min(1, P.speed / 6));
+    P.heading += turn * 1.6 * dt * (0.5 + Math.min(1, P.speed / 6));
     if (input.up) P.speed += 12 * dt;
     else if (input.down) P.speed -= 14 * dt;
     else P.speed *= (1 - 0.5 * dt);
@@ -551,19 +645,80 @@ function tick() {
   // kucanie – Oskar pochyla się na desce
   const cs = P.crouch ? 0.7 : 1;
   skater.scale.y += (cs - skater.scale.y) * 0.25;
-  // FRIDA goni Oskara (biegnie za nim)
+  // FRIDA goni Oskara (a czasem robi swoje...)
   const fx = P.x - Math.sin(P.heading) * 2.6;
   const fz = P.z - Math.cos(P.heading) * 2.6;
-  dog.position.x += (fx - dog.position.x) * 0.09;
-  dog.position.z += (fz - dog.position.z) * 0.09;
-  dog.position.y = groundH(dog.position.x, dog.position.z);
-  dog.rotation.y = Math.atan2(fx - dog.position.x, fz - dog.position.z);
+  if (dogAI.mode === "follow") {
+    dogAI.timer -= dt;
+    if (dogAI.timer <= 0 && P.started) {
+      if (Math.random() < 0.5) { dogAI.mode = "poop"; dogAI.eventT = 2.2; toast("Frida robi kupkę... 💩"); }
+      else if (TREES.length) {
+        let best = TREES[0], bd = 1e9;
+        for (const t of TREES) {
+          const d = Math.hypot(t.x - dog.position.x, t.z - dog.position.z);
+          if (d < bd) { bd = d; best = t; }
+        }
+        dogAI.tx = best.x + 0.9; dogAI.tz = best.z + 0.9;
+        dogAI.mode = "peeWalk"; toast("Frida biegnie do drzewa... 🐕");
+      } else dogAI.timer = 10;
+    }
+    dog.position.x += (fx - dog.position.x) * 0.09;
+    dog.position.z += (fz - dog.position.z) * 0.09;
+    dog.rotation.y = Math.atan2(fx - dog.position.x, fz - dog.position.z);
+  } else if (dogAI.mode === "peeWalk") {
+    dog.position.x += (dogAI.tx - dog.position.x) * 0.06;
+    dog.position.z += (dogAI.tz - dog.position.z) * 0.06;
+    dog.rotation.y = Math.atan2(dogAI.tx - dog.position.x, dogAI.tz - dog.position.z);
+    if (Math.hypot(dogAI.tx - dog.position.x, dogAI.tz - dog.position.z) < 0.5) { dogAI.mode = "pee"; dogAI.eventT = 2.6; }
+  } else if (dogAI.mode === "pee") {
+    dogAI.eventT -= dt;
+    if (dogAI.eventT <= 0) { dogAI.mode = "follow"; dogAI.timer = 14 + Math.random() * 14; }
+  } else if (dogAI.mode === "poop") {
+    dogAI.eventT -= dt;
+    if (dogAI.eventT <= 0) {
+      const kupka = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshLambertMaterial({ color: 0x6b4a2b }));
+      kupka.scale.set(1, 0.6, 1);
+      kupka.position.set(dog.position.x, groundH(dog.position.x, dog.position.z) + 0.05, dog.position.z);
+      scene.add(kupka);
+      dogAI.mode = "follow"; dogAI.timer = 14 + Math.random() * 14;
+    }
+  }
+  const squat = dogAI.mode === "poop" ? -0.1 : 0;
+  dog.position.y = groundH(dog.position.x, dog.position.z) + squat;
   // machanie ogonem i nogi
   dtail.rotation.x = 0.6 + Math.sin(Date.now() / 120) * 0.35;
   const run = Math.hypot(fx - dog.position.x, fz - dog.position.z);
   const lg = Date.now() / 90;
   for (let li = 0; li < dogLegs.length; li++) {
+    if (dogAI.mode === "pee" && li === 3) continue;
     dogLegs[li].rotation.x = Math.sin(lg + li * Math.PI / 2) * Math.min(0.7, run * 0.8);
+  }
+  if (dogAI.mode === "pee") dogLegs[3].rotation.x = -1.3;
+
+  // przechodnie i dzieciaki
+  for (const n of npcs) {
+    if (n.axis === "x") {
+      n.x += n.dir * n.speed * dt;
+      if (n.x > n.max) { n.x = n.max; n.dir = -1; }
+      if (n.x < n.min) { n.x = n.min; n.dir = 1; }
+    } else {
+      n.z += n.dir * n.speed * dt;
+      if (n.z > n.max) { n.z = n.max; n.dir = -1; }
+      if (n.z < n.min) { n.z = n.min; n.dir = 1; }
+    }
+    n.g.position.x = n.x; n.g.position.z = n.z;
+    const targ = n.axis === "x" ? (n.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (n.dir > 0 ? 0 : Math.PI);
+    n.g.rotation.y += (targ - n.g.rotation.y) * 0.1;
+    const t2 = Date.now() / 140 + n.phase;
+    const sw = n.walk ? Math.sin(t2 * (2 + n.speed)) * 0.5 : 0.12;
+    n.legs[0].rotation.x = sw; n.legs[1].rotation.x = -sw;
+  }
+
+  // szum rolek
+  if (rollGain) {
+    const sp = Math.abs(P.speed);
+    rollGain.gain.value = P.started && P.grounded ? Math.min(0.16, sp * sp * 0.004) : 0;
+    rollFilter.frequency.value = 180 + sp * 45;
   }
 
   // kamera za Oskarem
