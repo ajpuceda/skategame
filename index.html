@@ -40,7 +40,7 @@
 <div id="start">
   <h1>🛹 GRA SKATE OSKARA 3D</h1>
   <p>Pomóż Oskarowi jeździć na deskorolce po mieście i skateparku.</p>
-  <p>Joystick – jazda · przeciągnij ekran – obrót kamery · SPACJA / SKOK – skok<br/>w powietrzu: <b>E</b> kickflip, <b>Q</b> obrót 360</p>
+  <p>Joystick – jazda · przeciągnij ekran lub <b>A/D</b> – obrót kamery · SPACJA / SKOK – skok<br/>w powietrzu: <b>E</b> kickflip, <b>Q</b> obrót 360 · strzałki – jazda</p>
   <p>🪙 zbieraj monety · uwaga na pojemniki, kamienie i ławki!<br/>Jeśli Oskar się zrani, wraca do domu... i wraca z ręką w gipsie 🤕</p>
   <p style="font-size:19px;color:#ffd94d">Naciśnij SPACJĘ, SKOK lub dotknij ekranu, aby zacząć!</p>
 </div>
@@ -586,7 +586,7 @@ function initAudio() {
 addEventListener("pointerdown", () => { initAudio(); if (AC) AC.resume(); });
 
 // ---------- Wejście: klawiatura + przyciski ekranowe ----------
-const input = { left: false, right: false, up: false, down: false, jx: 0, jy: 0 };
+const input = { left: false, right: false, up: false, down: false, jx: 0, jy: 0, camL: false, camR: false };
 let camYaw = P.heading;   // obrót kamery (można nią kręcić palcem / myszą)
 function jump() {
   if (!P.started) { P.started = true; startEl.style.display = "none"; toast("Powodzenia, Oskarze! 🛹"); return; }
@@ -600,8 +600,10 @@ function trick(t) {
 }
 addEventListener("keydown", e => {
   if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," "].includes(e.key) || e.code === "Space") e.preventDefault();
-  if (e.code === "ArrowLeft" || e.code === "KeyA") input.left = true;
-  if (e.code === "ArrowRight" || e.code === "KeyD") input.right = true;
+  if (e.code === "ArrowLeft") input.left = true;
+  if (e.code === "ArrowRight") input.right = true;
+  if (e.code === "KeyA") input.camL = true;   // kamera w lewo (bez myszy)
+  if (e.code === "KeyD") input.camR = true;   // kamera w prawo
   if (e.code === "ArrowUp" || e.code === "KeyW") input.up = true;
   if (e.code === "ArrowDown" || e.code === "KeyS") input.down = true;
   if (e.code === "Space") jump();
@@ -610,8 +612,10 @@ addEventListener("keydown", e => {
   if (e.code === "KeyC") P.crouch = true;
 });
 addEventListener("keyup", e => {
-  if (e.code === "ArrowLeft" || e.code === "KeyA") input.left = false;
-  if (e.code === "ArrowRight" || e.code === "KeyD") input.right = false;
+  if (e.code === "ArrowLeft") input.left = false;
+  if (e.code === "ArrowRight") input.right = false;
+  if (e.code === "KeyA") input.camL = false;
+  if (e.code === "KeyD") input.camR = false;
   if (e.code === "ArrowUp" || e.code === "KeyW") input.up = false;
   if (e.code === "ArrowDown" || e.code === "KeyS") input.down = false;
   if (e.code === "KeyC") P.crouch = false;
@@ -703,6 +707,9 @@ function tick() {
   const dt = Math.min(0.05, clock.getDelta());
 
   if (P.started) {
+    // kamera klawiszami A / D (bez myszy)
+    if (input.camL) camYaw += 1.8 * dt;
+    if (input.camR) camYaw -= 1.8 * dt;
     // sterowanie: JOYSTICK (względem kamery) + klawiatura
     const turn = (input.left ? 1 : 0) - (input.right ? 1 : 0);
     if (turn) {
