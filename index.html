@@ -712,9 +712,9 @@ function tick() {
     const jmag = Math.hypot(input.jx, input.jy);
     if (jmag > 0.15) {
       const jn = Math.min(1, jmag);
-      // kierunek świata = obrót joysticka o kąt kamery
-      const wx = Math.sin(camYaw) * input.jy + Math.cos(camYaw) * input.jx;
-      const wz = Math.cos(camYaw) * input.jy - Math.sin(camYaw) * input.jx;
+      // kierunek świata = obrót joysticka o kąt kamery (prawo ekranu = +jx)
+      const wx = Math.sin(camYaw) * input.jy - Math.cos(camYaw) * input.jx;
+      const wz = Math.cos(camYaw) * input.jy + Math.sin(camYaw) * input.jx;
       const target = Math.atan2(wx, wz);
       let d = target - P.heading;
       while (d > Math.PI) d -= 2 * Math.PI;
