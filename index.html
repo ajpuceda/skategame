@@ -16,14 +16,16 @@
   #start { position: fixed; inset: 0; background: rgba(8,8,25,.72); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 20; padding: 20px; }
   #start h1 { font-size: 34px; margin: 0 0 10px; }
   #start p { font-size: 15px; color: #cfd6ee; margin: 4px 0; max-width: 520px; }
-  #touch { display: none; position: fixed; bottom: 14px; left: 0; right: 0; padding: 0 14px; justify-content: space-between; align-items: flex-end; z-index: 15; user-select: none; -webkit-user-select: none; }
+  #touch { display: none; position: fixed; bottom: 16px; left: 0; right: 0; padding: 0 18px; justify-content: space-between; align-items: flex-end; z-index: 15; user-select: none; -webkit-user-select: none; }
   @media (pointer: coarse) { #touch { display: flex; } }
+  #joy { width: 135px; height: 135px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); background: rgba(30,30,60,.35); touch-action: none; }
+  #knob { width: 56px; height: 56px; border-radius: 50%; background: rgba(90,120,255,.8); position: relative; left: 50%; top: 50%; transform: translate(-50%,-50%); pointer-events: none; }
+  #acts { display: flex; gap: 12px; align-items: flex-end; }
   .tbtn { width: 66px; height: 66px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); background: rgba(30,30,60,.55); color: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center; touch-action: none; flex-direction: column; }
   .tbtn small { font-size: 8px; font-weight: bold; }
   .tbtn:active { background: rgba(90,120,255,.75); }
-  #dpad { display: flex; gap: 18px; align-items: flex-end; }
-  #turn { display: flex; gap: 10px; }
-  #btnRide { width: 72px; height: 72px; font-size: 13px; background: rgba(46,160,67,.65) !important; }
+  #joy { width: 135px; height: 135px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); background: rgba(30,30,60,.35); touch-action: none; }
+  #knob { width: 56px; height: 56px; border-radius: 50%; background: rgba(90,120,255,.8); position: relative; left: 50%; top: 50%; transform: translate(-50%,-50%); pointer-events: none; }
   #acts { display: flex; gap: 12px; align-items: flex-end; }
   #acts .tbtn { width: 62px; height: 62px; font-size: 12px; }
   #btnJump { width: 78px !important; height: 78px !important; font-size: 15px !important; background: rgba(232,71,75,.6) !important; }
@@ -38,18 +40,12 @@
 <div id="start">
   <h1>🛹 GRA SKATE OSKARA 3D</h1>
   <p>Pomóż Oskarowi jeździć na deskorolce po mieście i skateparku.</p>
-  <p>⬅️ ➡️ skręcanie · ⬆️ / W przyspieszanie · SPACJA skok<br/>w powietrzu: <b>E</b> kickflip, <b>Q</b> obrót 360</p>
+  <p>Joystick – jazda · przeciągnij ekran – obrót kamery · SPACJA / SKOK – skok<br/>w powietrzu: <b>E</b> kickflip, <b>Q</b> obrót 360</p>
   <p>🪙 zbieraj monety · uwaga na pojemniki, kamienie i ławki!<br/>Jeśli Oskar się zrani, wraca do domu... i wraca z ręką w gipsie 🤕</p>
   <p style="font-size:19px;color:#ffd94d">Naciśnij SPACJĘ, SKOK lub dotknij ekranu, aby zacząć!</p>
 </div>
 <div id="touch">
-  <div id="dpad">
-    <button class="tbtn" id="btnRide" data-k="up">JAZDA<small>⬆️</small></button>
-    <div id="turn">
-      <button class="tbtn" data-k="left">◀</button>
-      <button class="tbtn" data-k="right">▶</button>
-    </div>
-  </div>
+  <div id="joy"><div id="knob"></div></div>
   <div id="acts">
     <button class="tbtn" data-t="crouch">Kucnij</button>
     <button class="tbtn" data-t="kick">Kickflip</button>
@@ -590,7 +586,8 @@ function initAudio() {
 addEventListener("pointerdown", () => { initAudio(); if (AC) AC.resume(); });
 
 // ---------- Wejście: klawiatura + przyciski ekranowe ----------
-const input = { left: false, right: false, up: false, down: false };
+const input = { left: false, right: false, up: false, down: false, jx: 0, jy: 0 };
+let camYaw = P.heading;   // obrót kamery (można nią kręcić palcem / myszą)
 function jump() {
   if (!P.started) { P.started = true; startEl.style.display = "none"; toast("Powodzenia, Oskarze! 🛹"); return; }
   if (P.grounded) { P.vy = 8.2; P.grounded = false; P.trick = null; P.trickT = 0; }
@@ -648,6 +645,39 @@ document.addEventListener("touchmove", e => e.preventDefault(), { passive: false
 // start: dotknięcie ekranu startowego też uruchamia grę (ważne na telefonie)
 startEl.addEventListener("pointerdown", e => { e.preventDefault(); jump(); });
 
+// ---------- JOYSTICK ----------
+const joyEl = document.getElementById("joy");
+const knobEl = document.getElementById("knob");
+let joyId = null;
+function setJoy(e) {
+  const r = joyEl.getBoundingClientRect();
+  let dx = e.clientX - (r.left + r.width / 2);
+  let dy = e.clientY - (r.top + r.height / 2);
+  const d = Math.hypot(dx, dy), max = r.width / 2 - 12;
+  if (d > max) { dx = dx / d * max; dy = dy / d * max; }
+  knobEl.style.left = "calc(50% + " + dx + "px)";
+  knobEl.style.top = "calc(50% + " + dy + "px)";
+  input.jx = dx / max; input.jy = -dy / max;
+}
+joyEl.addEventListener("pointerdown", e => { e.preventDefault(); joyId = e.pointerId; setJoy(e); });
+joyEl.addEventListener("pointermove", e => { if (e.pointerId === joyId) { e.preventDefault(); setJoy(e); } });
+function joyEnd(e) {
+  if (e.pointerId === joyId) {
+    joyId = null; input.jx = 0; input.jy = 0;
+    knobEl.style.left = "50%"; knobEl.style.top = "50%";
+  }
+}
+joyEl.addEventListener("pointerup", joyEnd);
+joyEl.addEventListener("pointercancel", joyEnd);
+
+// ---------- OBRÓT KAMERY (przeciągnij palcem / myszą po ekranie) ----------
+let camDragId = null, camDragX = 0;
+renderer.domElement.addEventListener("pointerdown", e => { camDragId = e.pointerId; camDragX = e.clientX; });
+addEventListener("pointermove", e => {
+  if (e.pointerId === camDragId) { camYaw -= (e.clientX - camDragX) * 0.006; camDragX = e.clientX; }
+});
+addEventListener("pointerup", e => { if (e.pointerId === camDragId) camDragId = null; });
+
 // ---------- Uszkodzenia ----------
 function damage(msg) {
   if (P.hurtCd > 0) return;
@@ -673,14 +703,29 @@ function tick() {
   const dt = Math.min(0.05, clock.getDelta());
 
   if (P.started) {
-    // sterowanie
+    // sterowanie: JOYSTICK (względem kamery) + klawiatura
     const turn = (input.left ? 1 : 0) - (input.right ? 1 : 0);
-    P.heading += turn * 1.6 * dt * (0.5 + Math.min(1, P.speed / 6));
-    if (input.up) P.speed += 12 * dt;
+    if (turn) {
+      P.heading += turn * 1.6 * dt * (0.5 + Math.min(1, P.speed / 6));
+      camYaw = P.heading;   // kamera podąża przy skręcie klawiszami
+    }
+    const jmag = Math.hypot(input.jx, input.jy);
+    if (jmag > 0.15) {
+      const jn = Math.min(1, jmag);
+      // kierunek świata = obrót joysticka o kąt kamery
+      const wx = Math.sin(camYaw) * input.jy + Math.cos(camYaw) * input.jx;
+      const wz = Math.cos(camYaw) * input.jy - Math.sin(camYaw) * input.jx;
+      const target = Math.atan2(wx, wz);
+      let d = target - P.heading;
+      while (d > Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      P.heading += d * Math.min(1, 10 * dt);
+      P.speed += (jn * 11 - P.speed) * Math.min(1, 6 * dt);
+    } else if (input.up) P.speed += 12 * dt;
     else if (input.down) P.speed -= 14 * dt;
     else P.speed *= (1 - 0.5 * dt);
     P.speed = Math.max(-4, Math.min(12, P.speed));
-    if (P.grounded && P.speed !== 0 && !input.up && !input.down && Math.abs(P.speed) < 0.3) P.speed = 0;
+    if (P.grounded && !input.up && !input.down && jmag <= 0.15 && Math.abs(P.speed) < 0.3) P.speed = 0;
 
     // ruch
     const nx = P.x + Math.sin(P.heading) * P.speed * dt;
@@ -869,9 +914,9 @@ function tick() {
     if (po.t <= 0) poops.splice(i, 1);
   }
 
-  // kamera za Oskarem
-  const cx = P.x - Math.sin(P.heading) * 7;
-  const cz = P.z - Math.cos(P.heading) * 7;
+  // kamera za Oskarem, obracana palcem (camYaw)
+  const cx = P.x - Math.sin(camYaw) * 7;
+  const cz = P.z - Math.cos(camYaw) * 7;
   camera.position.lerp(new THREE.Vector3(cx, P.y + 3.2, cz), 0.08);
   camera.lookAt(P.x, P.y + 1.2, P.z);
 
